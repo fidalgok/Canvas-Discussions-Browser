@@ -33,19 +33,38 @@ export async function fetchCanvasDiscussions({ apiUrl, apiKey, courseId }) {
       endpoint: `/courses/${courseId}/discussion_topics/${topic.id}/entries`,
       method: 'GET'
     });
-    // Attach topic title to each post
     for (const entry of entries) {
       entry.topic_title = topic.title;
+      if (typeof topic.assignment_id !== 'undefined') {
+        entry.assignment_id = topic.assignment_id;
+      }
       allPosts.push(entry);
+      // Fetch and add replies to this entry
+      const replies = await canvasProxy({
+        apiUrl,
+        apiKey,
+        endpoint: `/courses/${courseId}/discussion_topics/${topic.id}/entries/${entry.id}/replies`,
+        method: 'GET'
+      });
+      console.log('REPLIES for entry', entry.id, ':', replies.map(r => ({id: r.id, user_id: r.user_id, user_name: r.user_name, display_name: r.user?.display_name})));
+      for (const reply of replies) {
+        reply.topic_title = topic.title;
+        if (typeof topic.assignment_id !== 'undefined') {
+          reply.assignment_id = topic.assignment_id;
+        }
+        allPosts.push(reply);
+      }
     }
   }
   return allPosts;
 }
 
-export async function fetchCanvasUserPosts({ apiUrl, apiKey, courseId, userName }) {
+export async function fetchCanvasUserPosts({ apiUrl, apiKey, courseId, userName, userId }) {
   const allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
+  console.log('ALL POSTS:', allPosts.map(p => ({ id: p.id, user_id: p.user_id, user_name: p.user_name, display_name: p.user?.display_name })));
   return allPosts.filter(post =>
-    (post.user && post.user.display_name === userName) ||
+    (post.user && (post.user.id == userId || post.user.display_name === userName)) ||
+    post.user_id == userId ||
     post.user_name === userName
   );
 }

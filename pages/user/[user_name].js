@@ -50,13 +50,73 @@ export default function UserPage() {
     fetchCourseName();
   }, [apiUrl, apiKey, courseId]);
 
-  // Fetch posts when settings or user_name change
+  // Fetch posts and submission status when settings or user_name change
   useEffect(() => {
     if (!user_name || !apiUrl || !apiKey || !courseId) return;
     setLoading(true);
     setError('');
-    fetchCanvasUserPosts({ apiUrl, apiKey, courseId, userName: user_name })
-      .then(setPosts)
+    // Try to extract userId from router query, or fallback to first post
+    let userId = undefined;
+    if (router.query.user_id) {
+      userId = router.query.user_id;
+    } else if (posts && posts.length > 0 && posts[0].user_id) {
+      userId = posts[0].user_id;
+    }
+    fetchCanvasUserPosts({ apiUrl, apiKey, courseId, userName: user_name, userId })
+      .then(async (posts) => {
+        // 1. Collect all unique assignment_ids
+        const assignmentIds = Array.from(new Set(posts.map(p => p.assignment_id).filter(Boolean)));
+        // 2. Fetch all assignments for the course in one batch
+        let allAssignments = [];
+        try {
+          const allAssignRes = await fetch('/api/canvas-proxy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              apiUrl,
+              apiKey,
+              endpoint: `/courses/${courseId}/assignments?per_page=100`,
+              method: 'GET'
+            })
+          });
+          if (allAssignRes.ok) {
+            allAssignments = await allAssignRes.json();
+          }
+        } catch {}
+        // 3. Map assignment_id to points_possible
+        const assignmentsMap = {};
+        for (const a of allAssignments) {
+          assignmentsMap[a.id] = a;
+        }
+        // 4. For posts with assignment_id and user_id, fetch submission and attach points_possible
+        const updatedPosts = await Promise.all(posts.map(async post => {
+          if (post.assignment_id && post.user_id) {
+            post.points_possible = assignmentsMap[post.assignment_id]?.points_possible;
+            try {
+              const subRes = await fetch('/api/canvas-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  apiUrl,
+                  apiKey,
+                  endpoint: `/courses/${courseId}/assignments/${post.assignment_id}/submissions/${post.user_id}`,
+                  method: 'GET'
+                })
+              });
+              if (subRes.ok) {
+                const submission = await subRes.json();
+                post._isUngraded = !submission || submission.grade === null || submission.grade === undefined || submission.grade === '';
+              } else {
+                post._isUngraded = true;
+              }
+            } catch {
+              post._isUngraded = true;
+            }
+          }
+          return post;
+        }));
+        setPosts(updatedPosts);
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, [user_name, apiUrl, apiKey, courseId]);
@@ -91,6 +151,8 @@ export default function UserPage() {
         ) : (
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-3xl font-bold mb-6">Posts by {user_name}</h2>
+            {(() => { if (posts.length > 0) { console.log('Sample post:', posts[0]); } })()}
+            {(() => { console.log('UserPage posts:', posts.map(p => ({ id: p.id, user_id: p.user_id, user_name: p.user_name, display_name: p.user?.display_name })) ); })()}
             {posts.length === 0 ? (
               <div className="text-gray-500 text-lg">No posts found for this user.</div>
             ) : (
@@ -99,7 +161,20 @@ export default function UserPage() {
                 .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
                 .map((post, idx) => (
                   <div key={idx} className="mb-6 p-4 rounded-lg bg-gray-50 border border-gray-200">
-                    <div className="font-semibold text-lg mb-1">{post.topic_title || 'Untitled Topic'}</div>
+                    <div className="font-semibold text-lg mb-1 flex items-center gap-2">
+                      {post.topic_title || 'Untitled Topic'}
+                      {post.assignment_id && post.user_id && courseId && Number(post.points_possible) >= 1 && (
+                        <a
+                          href={`https://bostoncollege.instructure.com/courses/${courseId}/gradebook/speed_grader?assignment_id=${post.assignment_id}&student_id=${post.user_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`text-xs px-2 py-1 rounded transition text-white ${post._isUngraded ? 'bg-red-900 hover:bg-red-800' : 'bg-gray-400 hover:bg-gray-500'}`}
+                          title={post._isUngraded ? 'Needs Grading' : 'Graded'}
+                        >
+                          SpeedGrader
+                        </a>
+                      )}
+                    </div>
                     <div className="text-gray-500 text-xs mb-2">{post.created_at ? new Date(post.created_at).toLocaleString() : ''}</div>
                     <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.message) }} />
                   </div>
