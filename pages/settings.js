@@ -90,6 +90,7 @@ export default function Settings() {
               onChange={e => setApiUrl(e.target.value)}
             />
             <label htmlFor="canvas_api_key" className="block text-gray-700 font-medium mb-0 mt-2">Canvas API Access Token</label>
+      
             <input
               id="canvas_api_key"
               className="border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-900 w-full"
@@ -98,6 +99,7 @@ export default function Settings() {
               type="password"
               onChange={e => setApiKey(e.target.value)}
             />
+            <p><em>How to get an API Access Token: <a class="text-red-900 underline"  href="https://community.canvaslms.com/t5/Canvas-Basics-Guide/How-do-I-manage-API-access-tokens-in-my-user-account/ta-p/615312">Canvas API Documentation</a></em></p>
 
             <button
               onClick={saveSettings}
