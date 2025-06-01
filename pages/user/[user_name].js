@@ -180,7 +180,7 @@ export default function UserPage() {
                 .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
                 .map((post, idx) => (
                   <div key={post.id}>
-                    <div className="bg-white rounded-lg shadow-md p-4 mb-4">
+                    <div className="bg-white rounded-lg shadow-md p-4 mb-4 border border-gray-200">
                       <div className="flex justify-between items-center mb-2">
                         <h3 className="text-xl font-semibold">{post.topic_title}</h3>
                         {post.assignment_id && post.user_id && courseId && assignmentsMap[post.assignment_id]?.points_possible > 0 && (
@@ -209,7 +209,7 @@ export default function UserPage() {
                     {/* Render replies */}
                     {repliesByParentId[post.id]?.map((reply, replyIdx) => (
                       <div key={reply.id} className="ml-8 border-l-4 border-blue-900 pl-4 mb-4">
-                        <div className="bg-white rounded-lg shadow-sm p-4">
+                        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
                           <div className="flex justify-between items-center mb-2">
                             <div>
                               <span className="text-sm text-gray-600">{reply.user?.display_name || reply.user_name}</span>
