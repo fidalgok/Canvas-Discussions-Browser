@@ -40,6 +40,34 @@ A modern, secure, and portable Next.js app for viewing and exporting Canvas LMS 
 - Your Canvas instance API URL (e.g. https://school.instructure.com/api/v1)
 - Your Course ID
 
+## Security Notes & Best Practices
+
+**API Key Handling**
+- Canvas API tokens are never hardcoded or committed to the repository.
+- Credentials are stored only in the browser's localStorage and are sent only to your own deployed app (never to third parties).
+
+**API Proxy**
+- All Canvas API requests are proxied through a Next.js API route to avoid CORS issues and keep tokens private.
+- The API proxy does not log or persist sensitive data.
+
+**HTML Sanitization**
+- All HTML content from Canvas (such as discussion posts) is sanitized with [DOMPurify](https://github.com/cure53/DOMPurify) before being rendered or processed, protecting against XSS attacks.
+- Markdown exports also sanitize HTML before conversion.
+
+**Input Validation**
+- User input (API URL, Access Token, Course ID) is not trusted and should be validated for correct format and length.
+
+**General Recommendations**
+- Keep dependencies up to date and run `npm audit` regularly.
+- If you deploy to a public URL, consider Netlify password protection or similar if you want to restrict access.
+- Review any new features that render or process HTML to ensure DOMPurify is used where appropriate.
+
+**Assumptions**
+- Canvas is assumed to sanitize its own data, but additional local sanitization is performed for defense in depth.
+
+**Security Review**
+- This app follows best practices for handling credentials and untrusted content, and is ready for review by security teams.
+
 ---
 
 This app is ready for deployment to Vercel, Netlify, or any Next.js-friendly host. All logic is in JavaScript/TypeScript—no Python or legacy code required.

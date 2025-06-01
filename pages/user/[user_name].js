@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import DOMPurify from 'dompurify';
 import { useRouter } from 'next/router';
 import { fetchCanvasUserPosts } from '../../js/canvasApi';
 
@@ -100,7 +101,7 @@ export default function UserPage() {
                   <div key={idx} className="mb-6 p-4 rounded-lg bg-gray-50 border border-gray-200">
                     <div className="font-semibold text-lg mb-1">{post.topic_title || 'Untitled Topic'}</div>
                     <div className="text-gray-500 text-xs mb-2">{post.created_at ? new Date(post.created_at).toLocaleString() : ''}</div>
-                    <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: post.message }} />
+                    <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.message) }} />
                   </div>
                 ))
             )}

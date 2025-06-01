@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
+import DOMPurify from 'dompurify';
 import Link from 'next/link';
 import { fetchCanvasDiscussions } from '../js/canvasApi';
 
 export default function Home() {
   // ...existing state
   // Add this handler to download all discussions as markdown
+  // Helper: Check if credentials are set
+  function credentialsMissing() {
+    return !apiUrl || !apiKey || !courseId;
+  }
+
   async function handleDownloadMarkdown() {
     // Load Turndown library dynamically if not already loaded
     if (!window.TurndownService) {
@@ -23,6 +29,8 @@ export default function Home() {
     turndownService.remove('link');
 
     function htmlToMarkdown(html) {
+  // Sanitize HTML before converting to markdown (extra safety)
+  html = DOMPurify.sanitize(html);
       // Remove script/style/link tags before conversion
       html = html.replace(/<script[\s\S]*?<\/script>/gi, '')
                  .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -41,7 +49,7 @@ export default function Home() {
         const author = entry.user?.display_name || entry.user_name || 'Unknown';
         const date = entry.created_at ? new Date(entry.created_at).toLocaleString() : '';
         const heading = `${'#'.repeat(2 + depth)} ${depth > 0 ? 'Reply: ' : ''}${author} at ${date}`;
-        let message = htmlToMarkdown(entry.message || '');
+        let message = htmlToMarkdown(DOMPurify.sanitize(entry.message || ''));
         // Indent replies with > for each depth level
         if (depth > 0) {
           message = message.split('\n').map(line => '>'.repeat(depth) + ' ' + line).join('\n');
@@ -60,7 +68,7 @@ export default function Home() {
     const apiUrl = localStorage.getItem('canvas_api_url') || '';
     const apiKey = localStorage.getItem('canvas_api_key') || '';
     const courseId = localStorage.getItem('course_id') || '';
-    if (!apiUrl || !apiKey || !courseId) {
+    if (credentialsMissing()) {
       alert('Please set your Canvas API credentials and Course ID in Settings first.');
       return;
     }
@@ -235,7 +243,7 @@ export default function Home() {
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
             <h1 className="text-2xl font-bold flex items-center">
-              <i className="fas fa-comments mr-2"></i>Canvas Discussion Viewer
+              <i className="fas fa-comments mr-2"></i>Canvas Discussions
               <span className="ml-4 text-lg font-normal text-gray-200">{courseName ? courseName : 'Loading...'}</span>
             </h1>
           </div>
@@ -250,81 +258,90 @@ export default function Home() {
         </div>
       </header>
       <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex justify-end mb-4">
-          <button
-            className="bg-red-900 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-800 transition-colors"
-            onClick={handleDownloadMarkdown}
-          >
-            Download All Discussions (Markdown)
-          </button>
-        </div>
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-       
-          <p className="text-gray-600 mb-2">
-            {/* Optionally show course ID here */}
-          </p>
-          <p className="text-gray-600 mb-6">View participation across all discussion topics, grouped by user.</p>
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-semibold text-gray-800">Users</h2>
-              <span className="bg-red-950 px-3 py-1 rounded-full text-white text-sm font-medium">{filteredUsers.length}</span>
+        {credentialsMissing() ? (
+          <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-900 p-6 mb-8 rounded">
+            <h2 className="text-xl font-bold mb-2">Canvas API Credentials Required</h2>
+            <p className="mb-2">To use this app, you must provide your Canvas API URL, Access Token, and Course ID.</p>
+            <Link href="/settings" className="text-red-900 underline font-semibold">Go to Settings</Link>
+          </div>
+        ) : (
+          <div>
+            <div className="flex justify-end mb-4">
+              <button
+                className="bg-red-900 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-800 transition-colors"
+                onClick={handleDownloadMarkdown}
+              >
+                Download All Discussions (Markdown)
+              </button>
             </div>
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-lg font-medium text-gray-700">Users ({filteredUsers.length})</h3>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search users..."
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#501315] focus:border-transparent"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
-                <i className="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-              </div>
-            </div>
-            <div className="space-y-3">
-              {loading ? (
-                <div className="text-red-900 font-semibold">Loading users...</div>
-              ) : error ? (
-                <div className="text-red-700 font-semibold">{error}</div>
-              ) : filteredUsers.length === 0 ? (
-                <div className="text-gray-500">No users found.</div>
-              ) : (
-                filteredUsers.map(user => (
-                  <Link
-                    key={user.name}
-                    href={`/user/${encodeURIComponent(user.name)}`}
-                    className="block hover:bg-gray-50 rounded-lg p-4 transition-colors duration-150 user-card border border-gray-200"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="flex-shrink-0">
-                          {user.avatar ? (
-                            <img src={user.avatar} alt={user.name} className="h-10 w-10 rounded-full object-cover" />
-                          ) : (
-                            <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center text-red-900 font-semibold user-initials">
-                              {user.initials}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <p className="text-gray-600 mb-2">
+                {/* Optionally show course ID here */}
+              </p>
+              <p className="text-gray-600 mb-6">View participation across all discussion topics, grouped by user.</p>
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-semibold text-gray-800">Users</h2>
+                  <span className="bg-red-950 px-3 py-1 rounded-full text-white text-sm font-medium">{filteredUsers.length}</span>
+                </div>
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-lg font-medium text-gray-700">Users ({filteredUsers.length})</h3>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search users..."
+                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#501315] focus:border-transparent"
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                    />
+                    <i className="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {loading ? (
+                    <div className="text-red-900 font-semibold">Loading users...</div>
+                  ) : error ? (
+                    <div className="text-red-700 font-semibold">{error}</div>
+                  ) : filteredUsers.length === 0 ? (
+                    <div className="text-gray-500">No users found.</div>
+                  ) : (
+                    filteredUsers.map(user => (
+                      <Link
+                        key={user.name}
+                        href={`/user/${encodeURIComponent(user.name)}`}
+                        className="block hover:bg-gray-50 rounded-lg p-4 transition-colors duration-150 user-card border border-gray-200"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <div className="flex-shrink-0">
+                              {user.avatar ? (
+                                <img src={user.avatar} alt={user.name} className="h-10 w-10 rounded-full object-cover" />
+                              ) : (
+                                <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center text-red-900 font-semibold user-initials">
+                                  {user.initials}
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900 truncate user-name">{user.name}</p>
-                          <div className="flex items-center text-xs text-gray-500 mt-1">
-                            <span className="mr-3"><i className="fas fa-comment-alt mr-1"></i> {user.count} posts</span>
-                            <span><i className="fas fa-clock mr-1"></i> Last active: {user.lastActive ? new Date(user.lastActive).toLocaleString() : 'Never'}</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900 truncate user-name">{user.name}</p>
+                              <div className="flex items-center text-xs text-gray-500 mt-1">
+                                <span className="mr-3"><i className="fas fa-comment-alt mr-1"></i> {user.count} posts</span>
+                                <span><i className="fas fa-clock mr-1"></i> Last active: {user.lastActive ? new Date(user.lastActive).toLocaleString() : 'Never'}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-red-900">
+                            <i className="fas fa-chevron-right"></i>
                           </div>
                         </div>
-                      </div>
-                      <div className="text-red-900">
-                        <i className="fas fa-chevron-right"></i>
-                      </div>
-                    </div>
-                  </Link>
-                ))
-              )}
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </main>
     </div>
   );
