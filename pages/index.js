@@ -243,7 +243,7 @@ export default function Home() {
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
             <h1 className="text-2xl font-bold flex items-center">
-              <i className="fas fa-comments mr-2"></i>Canvas Discussions
+              <i className="fas fa-comments mr-2"></i>Canvas Discussion Browser
               <span className="ml-4 text-lg font-normal text-gray-200">{courseName ? courseName : 'Loading...'}</span>
             </h1>
           </div>
