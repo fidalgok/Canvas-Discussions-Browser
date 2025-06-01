@@ -1,16 +1,19 @@
-# Canvas Discussion Viewer (Next.js)
+# Canvas Discussion Browser
 
-A modern, secure, and portable Next.js app for viewing and exporting Canvas LMS discussions. No Python backend required—everything runs on Next.js with a secure API proxy.
+An experimental app for viewing all the Canvas discussion for a course by user 
 
-## Features
+It uses a secure API proxy to access a Canvas course using an personal API token
 
-- **Unified Next.js App**: All features are implemented in a modern React/Next.js stack.
+## Canvas Discussion Browser Features
+
+- **Settings**: Enter your Canvas API URL, Access Token, and Course ID in a simple settings form. Credentials are stored locally in your browser's localStorage for your privacy.
+- **User List**: View a list of users in the course and their posts.
+- **User Posts**: View all posts by a user, sorted oldest-to-newest. Includes link to Speedgrade for ungraded posts.
+
+## Implementation
+
+- ** Next.js App**: All features are implemented in a modern React/Next.js stack.
 - **Secure API Proxy**: All Canvas API calls are proxied through a Next.js API route to keep your API keys private and avoid CORS issues. No data or credentials are ever sent to third-party servers.
-- **User-Friendly Settings**: Enter your Canvas API URL, Access Token, and Course ID in a simple settings form. Credentials are stored in localStorage for your privacy.
-- **Course Name in Header**: The course name is fetched and displayed in the site header for context.
-- **Unified Navigation**: Consistent header and navigation across all pages (Home, User Posts, Settings).
-- **Accessible, Minimal UI**: Modern design with Tailwind CSS and accessibility improvements.
-- **Chronological Posts**: User posts are sorted oldest-to-newest for clarity.
 
 ### Markdown Export Feature
 
@@ -70,4 +73,4 @@ A modern, secure, and portable Next.js app for viewing and exporting Canvas LMS 
 
 ---
 
-This app is ready for deployment to Vercel, Netlify, or any Next.js-friendly host. All logic is in JavaScript/TypeScript—no Python or legacy code required.
+This app is ready for deployment to Vercel, Netlify, or any Next.js-friendly host. All logic is in JavaScript/TypeScript.

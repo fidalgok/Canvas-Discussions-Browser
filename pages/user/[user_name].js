@@ -144,16 +144,21 @@ export default function UserPage() {
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
             <h1 className="text-2xl font-bold flex items-center">
-              <i className="fas fa-comments mr-2"></i>Canvas Discussion Browser
+              <a href="/" className="flex items-center hover:text-gray-200 transition-colors">
+                <i className="fas fa-comments mr-2"></i>Canvas Discussion Browser
+              </a>
               <span className="ml-4 text-lg font-normal text-gray-200">{courseName ? courseName : 'Loading...'}</span>
             </h1>
           </div>
           <nav className="flex items-center space-x-4 text-sm">
+            <a href="/" className="text-white hover:text-gray-200 transition-colors">
+              <i className="fas fa-home mr-1"></i> Home
+            </a>
             <a href="/settings" className="text-white hover:text-gray-200 transition-colors">
               <i className="fas fa-cog mr-1"></i> Settings
             </a>
-            <a href="/" className="text-white hover:text-gray-200 transition-colors">
-              <i className="fas fa-th-large mr-1"></i> Home
+            <a href="https://github.com/cdil-bc/Canvas-Discussions-Browser" target="_blank" rel="noopener noreferrer" className="text-white hover:text-gray-200 transition-colors">
+              <i className="fab fa-github mr-1"></i> GitHub
             </a>
           </nav>
         </div>

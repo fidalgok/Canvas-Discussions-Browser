@@ -239,25 +239,32 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-red-900 text-white shadow-md">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+      <header className="bg-red-900 text-white shadow-md  mx-auto">
+        <div className="container mx-auto max-w-6xl px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
             <h1 className="text-2xl font-bold flex items-center">
-              <i className="fas fa-comments mr-2"></i>Canvas Discussion Browser
+              <a href="/" className="flex items-center hover:text-gray-200 transition-colors">
+                <i className="fas fa-comments mr-2"></i>Canvas Discussion Browser
+              </a>
               <span className="ml-4 text-lg font-normal text-gray-200">{courseName ? courseName : 'Loading...'}</span>
             </h1>
           </div>
           <nav className="flex items-center space-x-4 text-sm">
+            <a href="/" className="text-white hover:text-gray-200 transition-colors">
+              <i className="fas fa-home mr-1"></i> Home
+            </a>
             <a href="/settings" className="text-white hover:text-gray-200 transition-colors">
               <i className="fas fa-cog mr-1"></i> Settings
             </a>
-            <a href="/" className="text-white hover:text-gray-200 transition-colors">
-              <i className="fas fa-th-large mr-1"></i> Home
+            <a href="https://github.com/cdil-bc/Canvas-Discussions-Browser" target="_blank" rel="noopener noreferrer" className="text-white hover:text-gray-200 transition-colors">
+              <i className="fab fa-github mr-1"></i> GitHub
             </a>
           </nav>
         </div>
       </header>
       <main className="max-w-6xl mx-auto px-4 py-8">
+      <p className="text-gray-600 mb-6 font-bold">An experimental app for viewing a user's discussion posts across all discussion topics.</p>
+             
         {credentialsMissing() ? (
           <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-900 p-6 mb-8 rounded">
             <h2 className="text-xl font-bold mb-2">Canvas API Credentials Required</h2>
@@ -266,37 +273,33 @@ export default function Home() {
           </div>
         ) : (
           <div>
-            <div className="flex justify-end mb-4">
-              <button
-                className="bg-red-900 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-800 transition-colors"
-                onClick={handleDownloadMarkdown}
-              >
-                Download All Discussions (Markdown)
-              </button>
-            </div>
             <div className="bg-white rounded-lg shadow-md p-6 mb-6">
               <p className="text-gray-600 mb-2">
                 {/* Optionally show course ID here */}
               </p>
-              <p className="text-gray-600 mb-6">View participation across all discussion topics, grouped by user.</p>
               <div className="mb-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-semibold text-gray-800">Users</h2>
-                  <span className="bg-red-950 px-3 py-1 rounded-full text-white text-sm font-medium">{filteredUsers.length}</span>
-                </div>
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-lg font-medium text-gray-700">Users ({filteredUsers.length})</h3>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Search users..."
-                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#501315] focus:border-transparent"
-                      value={search}
-                      onChange={e => setSearch(e.target.value)}
-                    />
-                    <i className="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-semibold text-gray-800">Users ({filteredUsers.length})</h2>
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search users..."
+                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#501315] focus:border-transparent"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                      />
+                      <i className="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                    </div>
+                    <button
+                      className="bg-red-900 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-800 transition-colors whitespace-nowrap"
+                      onClick={handleDownloadMarkdown}
+                    >
+                      Download All Discussions
+                    </button>
                   </div>
                 </div>
+
                 <div className="space-y-3">
                   {loading ? (
                     <div className="text-red-900 font-semibold">Loading users...</div>
