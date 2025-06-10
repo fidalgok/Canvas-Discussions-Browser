@@ -1,8 +1,25 @@
 # Canvas Discussion Browser
 
-An experimental app for viewing all the Canvas discussion for a course by user 
+A Next.js application designed for **educators and instructors** who want to efficiently review and analyze student participation in Canvas LMS discussion forums.
 
-It uses a secure API proxy to access a Canvas course using an personal API token
+## Why This Tool Exists
+
+Canvas's default discussion interface is organized by topic, making it difficult for instructors to:
+- See the complete picture of individual student participation across all discussions
+- Quickly identify which students are engaging vs. remaining silent
+- Efficiently navigate between student posts and grading interfaces
+- Keep records of discussion content for evaluation or accreditation
+
+This app transforms Canvas's topic-centric view into a **student-centric view**, allowing instructors to assess participation patterns, streamline grading workflows, and export discussions for documentation.
+
+## Key Use Cases
+
+- **Participation Assessment**: Quickly identify which students are actively participating
+- **Grading Efficiency**: View all posts by a student in chronological order with direct links to SpeedGrader for ungraded content
+- **Content Analysis**: Review the quality and depth of individual student contributions across all course topics  
+- **Documentation**: Export all discussions as markdown for course evaluation, sharing with colleagues, or archival purposes
+
+The app uses a secure API proxy to access Canvas course data with your personal API token, ensuring your credentials remain private.
 
 ## Canvas Discussion Browser Features
 
