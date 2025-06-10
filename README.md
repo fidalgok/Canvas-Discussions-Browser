@@ -88,6 +88,33 @@ The app uses a secure API proxy to access Canvas course data with your personal 
 **Security Review**
 - This app follows best practices for handling credentials and untrusted content, and is ready for review by security teams.
 
+## Deployment
+
+### Deploy to Vercel
+
+1. **Install Vercel CLI** (if not already installed):
+   ```bash
+   npm install -g vercel
+   ```
+
+2. **Login to Vercel**:
+   ```bash
+   vercel login
+   ```
+
+3. **Deploy to production**:
+   ```bash
+   vercel --prod --yes
+   ```
+
+4. **Follow the prompts** to set project name and deployment settings
+
+The app will be automatically built and deployed. Vercel will provide you with a production URL.
+
+### Other Hosting Options
+
+This app can also be deployed to Netlify or any Next.js-compatible host.
+
 ---
 
-This app is ready for deployment to Vercel, Netlify, or any Next.js-friendly host. All logic is in JavaScript/TypeScript.
+**Security Note**: All API credentials are stored only in users' browsers (localStorage) and never transmitted to third parties.
