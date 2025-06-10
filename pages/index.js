@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import DOMPurify from 'dompurify';
 import Link from 'next/link';
-import { fetchCanvasDiscussions } from '../js/canvasApi';
+import { fetchCanvasDiscussions, clearCache } from '../js/canvasApi';
 
 export default function Home() {
   // ...existing state
@@ -169,6 +169,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [dataSource, setDataSource] = useState('');
 
   useEffect(() => {
     setApiUrl(localStorage.getItem('canvas_api_url') || '');
@@ -180,8 +181,23 @@ export default function Home() {
     if (!apiUrl || !apiKey || !courseId) return;
     setLoading(true);
     setError('');
+    setDataSource('');
+    
+    // Listen for console messages to detect cache usage
+    const originalLog = console.log;
+    console.log = function(...args) {
+      if (args[0] === '✓ Using cached discussion data') {
+        setDataSource('cached');
+      } else if (args[0] === '→ Fetching fresh discussion data from Canvas API') {
+        setDataSource('fresh');
+      }
+      originalLog.apply(console, args);
+    };
+    
     fetchCanvasDiscussions({ apiUrl, apiKey, courseId })
       .then(posts => {
+        console.log = originalLog; // Restore original console.log
+        
         if (posts.length > 0) {
           // Debug: log the first post to see structure
           console.log('First post:', posts[0]);
@@ -202,7 +218,10 @@ export default function Home() {
         });
         setUsers(Object.values(userMap).sort((a, b) => b.count - a.count));
       })
-      .catch(e => setError(e.message))
+      .catch(e => {
+        console.log = originalLog; // Restore original console.log
+        setError(e.message);
+      })
       .finally(() => setLoading(false));
   }, [apiUrl, apiKey, courseId]);
 
@@ -236,6 +255,32 @@ export default function Home() {
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  function handleRefreshData() {
+    clearCache(courseId);
+    setDataSource('');
+    // Trigger re-fetch by updating a dependency
+    setLoading(true);
+    fetchCanvasDiscussions({ apiUrl, apiKey, courseId })
+      .then(posts => {
+        const userMap = {};
+        posts.forEach(post => {
+          const name = post.user?.display_name || post.user_name || 'Unknown';
+          const lastActive = post.created_at || '';
+          const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+          const avatar = post.user?.avatar_image_url || null;
+          if (!userMap[name]) userMap[name] = { name, count: 0, lastActive, initials, avatar };
+          userMap[name].count++;
+          if (!userMap[name].lastActive || new Date(post.created_at) > new Date(userMap[name].lastActive)) {
+            userMap[name].lastActive = post.created_at;
+          }
+        });
+        setUsers(Object.values(userMap).sort((a, b) => b.count - a.count));
+        setDataSource('fresh');
+      })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -279,7 +324,18 @@ export default function Home() {
               </p>
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-semibold text-gray-800">Users ({filteredUsers.length})</h2>
+                  <div className="flex items-center gap-4">
+                    <h2 className="text-2xl font-semibold text-gray-800">Users ({filteredUsers.length})</h2>
+                    {dataSource && (
+                      <span className={`text-sm px-2 py-1 rounded ${
+                        dataSource === 'cached' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {dataSource === 'cached' ? '⚡ Cached data' : '🔄 Fresh data'}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-4">
                     <div className="relative">
                       <input
@@ -291,6 +347,13 @@ export default function Home() {
                       />
                       <i className="fas fa-search absolute left-3 top-3 text-gray-400"></i>
                     </div>
+                    <button
+                      className="bg-gray-600 text-white px-3 py-2 rounded-md font-semibold hover:bg-gray-700 transition-colors whitespace-nowrap"
+                      onClick={handleRefreshData}
+                      disabled={loading}
+                    >
+                      🔄 Refresh
+                    </button>
                     <button
                       className="bg-red-900 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-800 transition-colors whitespace-nowrap"
                       onClick={handleDownloadMarkdown}

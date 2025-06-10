@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { clearCache } from '../js/canvasApi';
 
 export default function Settings() {
   const [apiUrl, setApiUrl] = useState('');
@@ -6,6 +7,7 @@ export default function Settings() {
   const [courseId, setCourseId] = useState('');
   const [courseName, setCourseName] = useState('');
   const [saved, setSaved] = useState(false);
+  const [cacheCleared, setCacheCleared] = useState(false);
 
   useEffect(() => {
     setApiUrl(localStorage.getItem('canvas_api_url') || 'https://bostoncollege.instructure.com/api/v1');
@@ -44,8 +46,18 @@ export default function Settings() {
     localStorage.setItem('canvas_api_url', apiUrl);
     localStorage.setItem('canvas_api_key', apiKey);
     localStorage.setItem('course_id', courseId);
+    
+    // Clear cache when settings change to force fresh data
+    clearCache(courseId);
+    
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
+  }
+
+  function handleClearCache() {
+    clearCache(courseId);
+    setCacheCleared(true);
+    setTimeout(() => setCacheCleared(false), 2000);
   }
 
   return (
@@ -106,13 +118,22 @@ export default function Settings() {
             />
             <p><em>How to get an API Access Token: <a class="text-red-900 underline"  href="https://community.canvaslms.com/t5/Canvas-Basics-Guide/How-do-I-manage-API-access-tokens-in-my-user-account/ta-p/615312">Canvas API Documentation</a></em></p>
 
-            <button
-              onClick={saveSettings}
-              className="bg-red-900 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-800 transition-colors"
-            >
-              Save Settings
-            </button>
+            <div className="flex gap-4">
+              <button
+                onClick={saveSettings}
+                className="bg-red-900 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-800 transition-colors"
+              >
+                Save Settings
+              </button>
+              <button
+                onClick={handleClearCache}
+                className="bg-gray-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-gray-700 transition-colors"
+              >
+                Clear Cache & Refresh Data
+              </button>
+            </div>
             {saved && <div className="text-green-700 font-semibold">Saved!</div>}
+            {cacheCleared && <div className="text-blue-700 font-semibold">Cache cleared! Fresh data will be loaded.</div>}
           </div>
         </div>
       </main>

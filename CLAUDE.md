@@ -62,3 +62,25 @@ Uses Turndown.js library to convert HTML content to markdown. Creates threaded d
 - Users grouped by `display_name` or `user_name` (falls back to 'Unknown')
 - Same person with different names across posts = separate users (by design)
 - Posts with missing user data logged in console for investigation
+
+## Performance Optimizations
+
+### Browser Caching System
+- **Cache Duration**: 10 minutes for discussion data
+- **Storage**: Browser localStorage with automatic TTL (time-to-live)
+- **Cache Key**: `canvas_discussions_${courseId}` 
+- **Benefits**: Near-instant navigation after initial page load
+
+### Cache Management
+- **Auto-expiry**: Cache automatically expires after 10 minutes
+- **Settings changes**: Cache cleared when API credentials are updated
+- **Manual refresh**: "🔄 Refresh" button on homepage for immediate cache clearing
+- **Visual indicators**: 
+  - "⚡ Cached data" (green) = Using fast cached data
+  - "🔄 Fresh data" (blue) = Just fetched from Canvas API
+
+### Implementation Details
+- Cache check happens in `fetchCanvasDiscussions()` before API calls
+- Console logging shows cache hits vs fresh fetches
+- Cache stored as `{data: posts, timestamp: Date.now()}`
+- Homepage detects cache usage via console message interception

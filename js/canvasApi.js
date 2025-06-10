@@ -1,6 +1,7 @@
 // Minimal Canvas API client for Next.js (browser/client-side)
 // Uses fetch, no external deps required
 
+
 // All browser requests go through the Next.js API proxy to avoid CORS issues
 async function canvasProxy({ apiUrl, apiKey, endpoint, method = 'GET', body }) {
   const res = await fetch('/api/canvas-proxy', {
@@ -26,6 +27,28 @@ function logPost(post) {
 }
 
 export async function fetchCanvasDiscussions({ apiUrl, apiKey, courseId }) {
+  // Simple cache check - 10 minute TTL
+  const cacheKey = `canvas_discussions_${courseId}`;
+  const cached = localStorage.getItem(cacheKey);
+  
+  if (cached) {
+    try {
+      const { data, timestamp } = JSON.parse(cached);
+      const tenMinutes = 10 * 60 * 1000;
+      
+      if (Date.now() - timestamp < tenMinutes) {
+        console.log('✓ Using cached discussion data');
+        return data;
+      } else {
+        localStorage.removeItem(cacheKey);
+      }
+    } catch (error) {
+      localStorage.removeItem(cacheKey);
+    }
+  }
+
+  console.log('→ Fetching fresh discussion data from Canvas API');
+  
   // 1. Fetch all discussion topics
   const topics = await canvasProxy({
     apiUrl,
@@ -109,6 +132,12 @@ export async function fetchCanvasDiscussions({ apiUrl, apiKey, courseId }) {
     }
   }
 
+  // Cache the results
+  localStorage.setItem(cacheKey, JSON.stringify({
+    data: allPosts,
+    timestamp: Date.now()
+  }));
+
   return allPosts;
 }
 
@@ -166,4 +195,10 @@ export async function fetchCanvasUserPosts({ apiUrl, apiKey, courseId, userName,
   })));
 
   return postsAndReplies;
+}
+
+export function clearCache(courseId) {
+  const cacheKey = `canvas_discussions_${courseId}`;
+  localStorage.removeItem(cacheKey);
+  console.log('✓ Cache cleared for course', courseId);
 }
