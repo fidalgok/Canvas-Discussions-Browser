@@ -39,12 +39,27 @@ export async function fetchCanvasDiscussions({ apiUrl, apiKey, courseId }) {
   let allPosts = [];
 
   for (const topic of topics) {
-    const entries = await canvasProxy({
-      apiUrl,
-      apiKey,
-      endpoint: `/courses/${courseId}/discussion_topics/${topic.id}/entries`,
-      method: 'GET'
-    });
+    // Fetch all entries with pagination
+    let allEntries = [];
+    let page = 1;
+    let hasMore = true;
+    
+    while (hasMore) {
+      const entries = await canvasProxy({
+        apiUrl,
+        apiKey,
+        endpoint: `/courses/${courseId}/discussion_topics/${topic.id}/entries?per_page=100&page=${page}`,
+        method: 'GET'
+      });
+      
+      allEntries = allEntries.concat(entries);
+      
+      // Check if we got fewer entries than requested (indicates last page)
+      hasMore = entries.length === 100;
+      page++;
+    }
+    
+    const entries = allEntries;
 
     for (const entry of entries) {
       // Only add if we haven't seen this ID before
@@ -57,13 +72,25 @@ export async function fetchCanvasDiscussions({ apiUrl, apiKey, courseId }) {
         }
         allPosts.push(entry);
 
-        // Fetch and add replies to this entry
-        const replies = await canvasProxy({
-          apiUrl,
-          apiKey,
-          endpoint: `/courses/${courseId}/discussion_topics/${topic.id}/entries/${entry.id}/replies`,
-          method: 'GET'
-        });
+        // Fetch and add replies to this entry with pagination
+        let allReplies = [];
+        let replyPage = 1;
+        let hasMoreReplies = true;
+        
+        while (hasMoreReplies) {
+          const replies = await canvasProxy({
+            apiUrl,
+            apiKey,
+            endpoint: `/courses/${courseId}/discussion_topics/${topic.id}/entries/${entry.id}/replies?per_page=100&page=${replyPage}`,
+            method: 'GET'
+          });
+          
+          allReplies = allReplies.concat(replies);
+          hasMoreReplies = replies.length === 100;
+          replyPage++;
+        }
+        
+        const replies = allReplies;
 
         for (const reply of replies) {
           // Only add if we haven't seen this ID before
@@ -81,13 +108,6 @@ export async function fetchCanvasDiscussions({ apiUrl, apiKey, courseId }) {
       }
     }
   }
-
-  console.log('All posts with duplicates removed:', allPosts.map(p => ({
-    id: p.id,
-    parent_id: p.parent_id,
-    topic_title: p.topic_title,
-    user_name: p.user_name || p.user?.display_name
-  })));
 
   return allPosts;
 }
