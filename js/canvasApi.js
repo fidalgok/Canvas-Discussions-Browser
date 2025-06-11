@@ -27,21 +27,15 @@ function logPost(post) {
 }
 
 export async function fetchCanvasDiscussions({ apiUrl, apiKey, courseId }) {
-  // Simple cache check - 10 minute TTL
+  // Check for cached data (no automatic expiry)
   const cacheKey = `canvas_discussions_${courseId}`;
   const cached = localStorage.getItem(cacheKey);
   
   if (cached) {
     try {
       const { data, timestamp } = JSON.parse(cached);
-      const tenMinutes = 10 * 60 * 1000;
-      
-      if (Date.now() - timestamp < tenMinutes) {
-        console.log('✓ Using cached discussion data');
-        return data;
-      } else {
-        localStorage.removeItem(cacheKey);
-      }
+      console.log('✓ Using cached discussion data', new Date(timestamp));
+      return data;
     } catch (error) {
       localStorage.removeItem(cacheKey);
     }
@@ -201,4 +195,19 @@ export function clearCache(courseId) {
   const cacheKey = `canvas_discussions_${courseId}`;
   localStorage.removeItem(cacheKey);
   console.log('✓ Cache cleared for course', courseId);
+}
+
+export function getCacheTimestamp(courseId) {
+  const cacheKey = `canvas_discussions_${courseId}`;
+  const cached = localStorage.getItem(cacheKey);
+  
+  if (cached) {
+    try {
+      const { timestamp } = JSON.parse(cached);
+      return timestamp;
+    } catch (error) {
+      return null;
+    }
+  }
+  return null;
 }

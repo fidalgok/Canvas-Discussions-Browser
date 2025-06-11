@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import DOMPurify from 'dompurify';
 import Link from 'next/link';
-import { fetchCanvasDiscussions, clearCache } from '../js/canvasApi';
+import { fetchCanvasDiscussions, clearCache, getCacheTimestamp } from '../js/canvasApi';
 
 export default function Home() {
   // ...existing state
@@ -170,6 +170,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [dataSource, setDataSource] = useState('');
+  const [cacheTimestamp, setCacheTimestamp] = useState(null);
 
   useEffect(() => {
     setApiUrl(localStorage.getItem('canvas_api_url') || '');
@@ -183,13 +184,19 @@ export default function Home() {
     setError('');
     setDataSource('');
     
+    // Check for existing cache timestamp
+    const existingTimestamp = getCacheTimestamp(courseId);
+    setCacheTimestamp(existingTimestamp);
+    
     // Listen for console messages to detect cache usage
     const originalLog = console.log;
     console.log = function(...args) {
       if (args[0] === '✓ Using cached discussion data') {
         setDataSource('cached');
+        setCacheTimestamp(existingTimestamp);
       } else if (args[0] === '→ Fetching fresh discussion data from Canvas API') {
         setDataSource('fresh');
+        setCacheTimestamp(null);
       }
       originalLog.apply(console, args);
     };
@@ -197,6 +204,10 @@ export default function Home() {
     fetchCanvasDiscussions({ apiUrl, apiKey, courseId })
       .then(posts => {
         console.log = originalLog; // Restore original console.log
+        
+        // Update cache timestamp after fetch
+        const newTimestamp = getCacheTimestamp(courseId);
+        setCacheTimestamp(newTimestamp);
         
         if (posts.length > 0) {
           // Debug: log the first post to see structure
@@ -259,6 +270,7 @@ export default function Home() {
   function handleRefreshData() {
     clearCache(courseId);
     setDataSource('');
+    setCacheTimestamp(null);
     // Trigger re-fetch by updating a dependency
     setLoading(true);
     fetchCanvasDiscussions({ apiUrl, apiKey, courseId })
@@ -277,6 +289,9 @@ export default function Home() {
         });
         setUsers(Object.values(userMap).sort((a, b) => b.count - a.count));
         setDataSource('fresh');
+        // Update timestamp after successful refresh
+        const newTimestamp = getCacheTimestamp(courseId);
+        setCacheTimestamp(newTimestamp);
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
@@ -326,13 +341,14 @@ export default function Home() {
                 <div className="flex justify-between items-center mb-6">
                   <div className="flex items-center gap-4">
                     <h2 className="text-2xl font-semibold text-gray-800">Users ({filteredUsers.length})</h2>
-                    {dataSource && (
-                      <span className={`text-sm px-2 py-1 rounded ${
-                        dataSource === 'cached' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {dataSource === 'cached' ? '⚡ Cached data' : '🔄 Fresh data'}
+                    {cacheTimestamp && (
+                      <span className="text-sm px-2 py-1 rounded bg-green-100 text-green-800">
+                        ⚡ Last refreshed: {new Date(cacheTimestamp).toLocaleString()}
+                      </span>
+                    )}
+                    {dataSource === 'fresh' && !cacheTimestamp && (
+                      <span className="text-sm px-2 py-1 rounded bg-blue-100 text-blue-800">
+                        🔄 Fresh data
                       </span>
                     )}
                   </div>
