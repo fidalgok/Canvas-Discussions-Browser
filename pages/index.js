@@ -72,7 +72,44 @@ export default function Home() {
       alert('Please set your Canvas API credentials and Course ID in Settings first.');
       return;
     }
-    // 1. Fetch all topics
+    // 1. Fetch all posts using the same pagination logic as the homepage
+    const allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
+    
+    // 2. Group posts by topic
+    const topicMap = {};
+    
+    // First, get all unique topics from the posts
+    allPosts.forEach(post => {
+      if (!topicMap[post.discussion_topic_id]) {
+        topicMap[post.discussion_topic_id] = {
+          id: post.discussion_topic_id,
+          title: post.topic_title,
+          assignment_id: post.assignment_id,
+          entries: []
+        };
+      }
+    });
+    
+    // Then organize posts into topic structure
+    allPosts.forEach(post => {
+      const topic = topicMap[post.discussion_topic_id];
+      if (post.parent_id) {
+        // This is a reply - find the parent entry and add it to _replies
+        const parentEntry = topic.entries.find(entry => entry.id === post.parent_id);
+        if (parentEntry) {
+          if (!parentEntry._replies) parentEntry._replies = [];
+          parentEntry._replies.push(post);
+        }
+      } else {
+        // This is a top-level entry
+        topic.entries.push(post);
+      }
+    });
+    
+    // Convert to array and fetch due dates
+    let topicEntries = Object.values(topicMap);
+    
+    // Fetch due dates for topics (this requires the original topic data)
     const topicsRes = await fetch('/api/canvas-proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -83,45 +120,15 @@ export default function Home() {
         method: 'GET'
       })
     });
-    if (!topicsRes.ok) {
-      alert('Failed to fetch discussion topics.');
-      return;
-    }
-    const topics = await topicsRes.json();
-    // 2. For each topic, fetch entries and their replies
-    let topicEntries = [];
-    for (const topic of topics) {
-      // Fetch top-level entries
-      const entriesRes = await fetch('/api/canvas-proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          apiUrl,
-          apiKey,
-          endpoint: `/courses/${courseId}/discussion_topics/${topic.id}/entries`,
-          method: 'GET'
-        })
-      });
-      let entries = entriesRes.ok ? await entriesRes.json() : [];
-      // For each entry, fetch its replies (threaded replies)
-      for (const entry of entries) {
-        // Replies endpoint: /discussion_topics/:topic_id/entries/:entry_id/replies
-        const repliesRes = await fetch('/api/canvas-proxy', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            apiUrl,
-            apiKey,
-            endpoint: `/courses/${courseId}/discussion_topics/${topic.id}/entries/${entry.id}/replies`,
-            method: 'GET'
-          })
-        });
-        const replies = repliesRes.ok ? await repliesRes.json() : [];
-        entry._replies = replies;
-      }
-      topicEntries.push({
-        ...topic,
-        entries,
+    
+    if (topicsRes.ok) {
+      const topics = await topicsRes.json();
+      // Merge due dates into our topic entries
+      topicEntries.forEach(topicEntry => {
+        const originalTopic = topics.find(t => t.id === topicEntry.id);
+        if (originalTopic) {
+          topicEntry.due_at = originalTopic.due_at;
+        }
       });
     }
     // 3. Sort topics by due date (or title if no due date)
