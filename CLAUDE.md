@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## AI Rules Integration
+
+This project includes comprehensive AI coding guidelines from [.ai-rules/](./.ai-rules/)
+
+For technology-specific rules, see:
+- [Tailwind Guidelines](./.ai-rules/rules/project-tech/tailwind/)
+- [Schadcn Guidelines](./.ai-rules/rules/project-tech/schadcn/)
+- [Security Best Practices](./.ai-rules/rules/user/security-best-practices.md)
+- [PRD Custom Instructions](./.ai-rules/rules/user/prd-custom-instructions.md)
+- [Coding Assistant Guidelines](./.ai-rules/rules/user/coding-assistant.md)
+
 ## Project Overview
 
 Canvas Discussion Browser is a Next.js application that allows educators to view and analyze Canvas LMS discussion posts by user across all course topics. The app includes markdown export functionality for downloading all discussions in a portable format.
