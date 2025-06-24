@@ -15,7 +15,7 @@ export default function Verify() {
     session3: []
   });
   const [matchedData, setMatchedData] = useState([]);
-  const [viewFilter, setViewFilter] = useState('false_absent'); // 'false_absent' or 'all'
+  const [viewFilter, setViewFilter] = useState('all'); // 'false_absent' or 'all'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -68,7 +68,7 @@ export default function Verify() {
     try {
       const posts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
       
-      // Extract unique users from Canvas posts
+      // Extract unique users from Canvas posts using improved logic
       const userMap = {};
       posts.forEach(post => {
         const displayName = post.user?.display_name;
@@ -77,13 +77,15 @@ export default function Verify() {
         const email = post.user?.email;
         
         if (displayName || userName) {
+          // Use display name as key since Canvas doesn't provide reliable usernames/emails
           const key = displayName || userName || 'Unknown';
+          
           if (!userMap[key]) {
             userMap[key] = {
               displayName: displayName || '',
               userName: userName || '',
               userId: userId || '',
-              email: email || '',
+              email: '', // Canvas doesn't provide emails in discussion posts
               postCount: 0
             };
           }
@@ -91,7 +93,9 @@ export default function Verify() {
         }
       });
       
-      setCanvasUsers(Object.values(userMap));
+      const canvasUsersArray = Object.values(userMap);
+      console.log('Canvas users extracted:', canvasUsersArray.length);
+      setCanvasUsers(canvasUsersArray);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -153,7 +157,9 @@ export default function Verify() {
       session3: csvData.session3.length
     });
     
+    console.log('Creating master list with canvas users:', canvasUsers.length);
     const masterList = createMasterParticipantListWithVerification(canvasUsers, csvData);
+    console.log('Master list created:', masterList.length);
     setMatchedData(masterList);
     
     // Log summary
@@ -161,6 +167,29 @@ export default function Verify() {
     const falseAbsents = masterList.filter(p => 
       p.discrepancies.some(d => d.type === 'false_absent')
     );
+    
+    console.log('Discrepancy summary:', {
+      totalParticipants: masterList.length,
+      withDiscrepancies: withDiscrepancies.length,
+      falseAbsents: falseAbsents.length
+    });
+    
+    // Debug first few participants with discrepancies
+    if (withDiscrepancies.length > 0) {
+      console.log('Sample discrepancies:', withDiscrepancies.slice(0, 3).map(p => ({
+        name: p.canvasDisplayName,
+        discrepancies: p.discrepancies.map(d => `${d.type}: ${d.message}`)
+      })));
+      
+      // Count discrepancy types
+      const discrepancyTypes = {};
+      withDiscrepancies.forEach(p => {
+        p.discrepancies.forEach(d => {
+          discrepancyTypes[d.type] = (discrepancyTypes[d.type] || 0) + 1;
+        });
+      });
+      console.log('Discrepancy types:', JSON.stringify(discrepancyTypes, null, 2));
+    }
     
     console.log(`Created master list: ${masterList.length} participants`);
     console.log(`Found ${withDiscrepancies.length} participants with discrepancies`);
