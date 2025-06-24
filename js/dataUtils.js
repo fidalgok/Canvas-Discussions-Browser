@@ -655,20 +655,30 @@ export function filterStudentParticipants(participants, teacherUserIds = []) {
 
 // Identify graded reflection assignments
 export function filterGradedReflections(posts) {
-  return posts.filter(post => {
+  const filtered = posts.filter(post => {
     const topicTitle = post.topic_title || '';
+    const lowerTitle = topicTitle.toLowerCase();
     
     // Look for reflection assignments (not introductions)
-    const isReflection = topicTitle.toLowerCase().includes('reflection') ||
-                        topicTitle.toLowerCase().includes('module');
+    const isReflection = lowerTitle.includes('reflection');
     
     // Exclude introduction posts
-    const isIntroduction = topicTitle.toLowerCase().includes('introduction') ||
-                          topicTitle.toLowerCase().includes('intro') ||
-                          topicTitle.toLowerCase().includes('welcome');
+    const isIntroduction = lowerTitle.includes('introduction') ||
+                          lowerTitle.includes('intro') ||
+                          lowerTitle.includes('welcome');
     
-    return isReflection && !isIntroduction;
+    const include = isReflection && !isIntroduction;
+    
+    // Debug logging for each post to see what's being included
+    if (include) {
+      console.log(`Including reflection topic: "${topicTitle}"`);
+    }
+    
+    return include;
   });
+  
+  console.log(`filterGradedReflections: Found ${filtered.length} graded reflection posts across topics`);
+  return filtered;
 }
 
 // Analyze reflection completion for microcredential
@@ -688,6 +698,10 @@ export function analyzeReflectionCompletion(participants, allPosts) {
     }
     reflectionTopics[topicId].posts.push(post);
   });
+  
+  // Debug logging
+  console.log('Detected reflection topics:', Object.values(reflectionTopics).map(t => t.title));
+  console.log('Total reflection topics found:', Object.keys(reflectionTopics).length);
   
   // Analyze completion for each participant
   return participants.map(participant => {
@@ -715,6 +729,14 @@ export function analyzeReflectionCompletion(participants, allPosts) {
         reflectionStatus.completedReflections++;
       }
     });
+    
+    // Debug logging for participants with unexpectedly high completion counts
+    if (reflectionStatus.completedReflections > 3) {
+      console.log(`WARNING: ${participant.canvasDisplayName} has ${reflectionStatus.completedReflections} completed reflections (should be max 3)`, {
+        reflectionDetails: reflectionStatus.reflectionDetails,
+        totalTopics: reflectionStatus.totalReflections
+      });
+    }
     
     // Calculate completion percentage
     reflectionStatus.completionPercentage = reflectionStatus.totalReflections > 0 

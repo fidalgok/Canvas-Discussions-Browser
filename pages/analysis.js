@@ -18,6 +18,7 @@ export default function Analysis() {
   const [participants, setParticipants] = useState([]);
   const [reflectionAnalysis, setReflectionAnalysis] = useState([]);
   const [participationMetrics, setParticipationMetrics] = useState(null);
+  const [postCounts, setPostCounts] = useState({ total: 0, student: 0, teacher: 0 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -198,8 +199,42 @@ export default function Analysis() {
         setParticipationMetrics(metrics);
       }
       
+      // Separate student posts from teacher posts
+      const studentPosts = canvasPosts.filter(post => {
+        const userId = post.user?.id || post.user_id;
+        return userId && !teacherUserIds.includes(parseInt(userId));
+      });
+      
+      const teacherPosts = canvasPosts.filter(post => {
+        const userId = post.user?.id || post.user_id;
+        return userId && teacherUserIds.includes(parseInt(userId));
+      });
+      
+      // Store post counts for UI display
+      setPostCounts({
+        total: canvasPosts.length,
+        student: studentPosts.length,
+        teacher: teacherPosts.length
+      });
+      
       // Use engaged participants for microcredential analysis
+      console.log('About to analyze reflections for', engagedParticipants.length, 'participants');
+      console.log('Total Canvas posts:', canvasPosts.length);
+      console.log('Student posts:', studentPosts.length);
+      console.log('Teacher posts:', teacherPosts.length);
+      
       const reflectionData = analyzeReflectionCompletion(engagedParticipants, canvasPosts);
+      console.log('Reflection analysis results:', reflectionData.length, 'participant records');
+      
+      if (reflectionData.length > 0) {
+        console.log('Sample reflection analysis:', {
+          participant: reflectionData[0].participant.canvasDisplayName,
+          completed: reflectionData[0].completedReflections,
+          total: reflectionData[0].totalReflections,
+          details: Object.keys(reflectionData[0].reflectionDetails)
+        });
+      }
+      
       setReflectionAnalysis(reflectionData);
       
       console.log('Analysis complete:', {
@@ -220,8 +255,9 @@ export default function Analysis() {
   const microcredentialStats = reflectionAnalysis.length > 0 ? {
     eligible: reflectionAnalysis.filter(r => r.microcredentialEligible).length,
     partial: reflectionAnalysis.filter(r => r.completedReflections > 0 && !r.microcredentialEligible).length,
-    none: reflectionAnalysis.filter(r => r.completedReflections === 0).length
-  } : { eligible: 0, partial: 0, none: 0 };
+    none: reflectionAnalysis.filter(r => r.completedReflections === 0).length,
+    totalReflections: reflectionAnalysis.reduce((sum, r) => sum + r.completedReflections, 0)
+  } : { eligible: 0, partial: 0, none: 0, totalReflections: 0 };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -287,8 +323,11 @@ export default function Analysis() {
               )}
               
               {participants.length > 0 && (
-                <div className="text-green-700 font-semibold">
-                  ✓ Loaded {participants.length} engaged participants, {allPosts.length} discussion posts
+                <div className="text-green-700 font-semibold space-y-1">
+                  <div>✓ Loaded {participants.length} engaged participants</div>
+                  <div className="text-sm text-gray-600">
+                    {postCounts.total} total posts: {postCounts.student} student posts, {postCounts.teacher} teacher posts
+                  </div>
                 </div>
               )}
             </div>
@@ -298,7 +337,11 @@ export default function Analysis() {
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h3 className="text-xl font-semibold mb-4">Microcredential Completion Status</h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                  <div className="bg-purple-50 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-purple-900">{microcredentialStats.totalReflections}</div>
+                    <div className="text-sm text-purple-700">Total Reflections</div>
+                  </div>
                   <div className="bg-green-50 p-4 rounded-lg">
                     <div className="text-2xl font-bold text-green-900">{microcredentialStats.eligible}</div>
                     <div className="text-sm text-green-700">Completed All Reflections</div>
