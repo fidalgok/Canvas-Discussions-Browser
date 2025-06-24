@@ -317,8 +317,14 @@ export default function Home() {
             </h1>
           </div>
           <nav className="flex items-center space-x-4 text-sm">
-            <a href="/" className="text-white hover:text-gray-200 transition-colors">
+            <a href="/" className="text-white hover:text-gray-200 transition-colors border-b">
               <i className="fas fa-home mr-1"></i> Home
+            </a>
+            <a href="/verify" className="text-white hover:text-gray-200 transition-colors">
+              <i className="fas fa-check-double mr-1"></i> Verify
+            </a>
+            <a href="/analysis" className="text-white hover:text-gray-200 transition-colors">
+              <i className="fas fa-chart-bar mr-1"></i> Analysis
             </a>
             <a href="/settings" className="text-white hover:text-gray-200 transition-colors">
               <i className="fas fa-cog mr-1"></i> Settings

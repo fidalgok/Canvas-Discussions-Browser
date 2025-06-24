@@ -76,7 +76,13 @@ export default function Settings() {
             <a href="/" className="text-white hover:text-gray-200 transition-colors">
               <i className="fas fa-home mr-1"></i> Home
             </a>
-            <a href="/settings" className="text-white hover:text-gray-200 transition-colors">
+            <a href="/verify" className="text-white hover:text-gray-200 transition-colors">
+              <i className="fas fa-check-double mr-1"></i> Verify
+            </a>
+            <a href="/analysis" className="text-white hover:text-gray-200 transition-colors">
+              <i className="fas fa-chart-bar mr-1"></i> Analysis
+            </a>
+            <a href="/settings" className="text-white hover:text-gray-200 transition-colors border-b">
               <i className="fas fa-cog mr-1"></i> Settings
             </a>
             <a href="https://github.com/cdil-bc/Canvas-Discussions-Browser" target="_blank" rel="noopener noreferrer" className="text-white hover:text-gray-200 transition-colors">
