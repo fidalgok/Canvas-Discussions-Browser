@@ -17,6 +17,16 @@ For technology-specific rules, see:
 
 Canvas Discussion Browser is a Next.js application that allows educators to view and analyze Canvas LMS discussion posts by user across all course topics. The app includes markdown export functionality for downloading all discussions in a portable format.
 
+## Documentation
+
+Comprehensive project documentation is located in the `/docs` folder:
+
+- **`docs/CORE_DISCUSSION_BROWSER.md`** - Original Canvas discussion browser features and architecture
+- **`docs/ANALYTICS_AND_VERIFICATION.md`** - Advanced analytics and verification dashboard features  
+- **`docs/CANVAS_API_INTEGRATION.md`** - Canvas API rules, patterns, and best practices
+
+These documents provide detailed technical reference for understanding the codebase, Canvas API integration patterns, and feature implementation.
+
 ## Development Commands
 
 - `npm run dev` - Start development server on http://localhost:3000

@@ -210,8 +210,8 @@ All pages now include consistent navigation:
 
 ## 📚 Documentation References
 
-- **Canvas API Rules**: See `CANVAS_API_RULES.md` for technical implementation details
-- **Original Features**: See main README for discussion browser functionality
+- **Canvas API Integration**: See `docs/CANVAS_API_INTEGRATION.md` for technical implementation details
+- **Core Discussion Browser**: See `docs/CORE_DISCUSSION_BROWSER.md` for original functionality
 - **Deployment**: See Vercel configuration for hosting setup
 
 ---
