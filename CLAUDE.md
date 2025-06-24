@@ -58,6 +58,12 @@ Uses Turndown.js library to convert HTML content to markdown. Creates threaded d
 - Check for: duplicate warnings, missing user data, pagination gaps
 - Verify user counts match between Canvas API output and homepage display
 
+### Reflection Analysis Debugging
+- **Topic Detection**: `filterGradedReflections()` logs each included reflection topic
+- **Post Breakdown**: Student vs teacher posts separated and counted
+- **Completion Validation**: Warns if participants exceed maximum possible reflections (3)
+- **Data Quality**: Logs reflection topic titles and total counts for verification
+
 ### User Grouping
 - Users grouped by `display_name` or `user_name` (falls back to 'Unknown')
 - Same person with different names across posts = separate users (by design)

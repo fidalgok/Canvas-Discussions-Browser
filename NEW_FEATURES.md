@@ -16,6 +16,8 @@ Comprehensive analytics for AI Test Kitchen course participation and microcreden
 - Excludes introduction posts from graded assignments
 - Calculates completion percentages for each participant
 - Determines microcredential eligibility based on completion thresholds
+- **Total Reflections Counter**: Shows sum of all reflections completed across all participants
+- **Student/Teacher Post Breakdown**: Disaggregates discussion posts by role for transparency
 
 #### **Engagement Filtering**
 Identifies "engaged participants" using dual criteria:
@@ -98,6 +100,13 @@ Robust fuzzy matching system handles:
 - **Parenthetical content**: "Sam Wallace (she/her)" ↔ "Sam Wallace"
 - **Punctuation normalization**: Removes special characters and normalizes whitespace
 - **Case insensitive matching**: Handles mixed case variations
+
+### **Enhanced Analytics & Debugging**
+Comprehensive logging and validation systems:
+- **Reflection Topic Detection**: Detailed console logging shows which topics are counted
+- **Post Count Validation**: Separate tracking of student vs teacher discussion posts
+- **Completion Count Verification**: Warns if participants have impossible completion counts
+- **Data Quality Checks**: Validates reflection filtering and participant matching
 
 ### **Canvas API Integration**
 - **Email Construction**: Builds emails from Canvas usernames (`username@bc.edu`)
