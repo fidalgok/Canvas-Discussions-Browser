@@ -1,187 +1,27 @@
 import { useEffect, useState } from 'react';
-import DOMPurify from 'dompurify';
 import Link from 'next/link';
 import { fetchCanvasDiscussions, clearCache, getCacheTimestamp } from '../js/canvasApi';
+import { filterGradedReflections, fetchCourseEnrollments, filterStudentParticipants } from '../js/dataUtils';
 
 export default function Home() {
-  // ...existing state
-  // Add this handler to download all discussions as markdown
+  const [apiUrl, setApiUrl] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [courseId, setCourseId] = useState('');
+  const [courseName, setCourseName] = useState('');
+  const [topics, setTopics] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [dataSource, setDataSource] = useState('');
+  const [cacheTimestamp, setCacheTimestamp] = useState(null);
+
   // Helper: Check if credentials are set
   function credentialsMissing() {
     return !apiUrl || !apiKey || !courseId;
   }
 
-  async function handleDownloadMarkdown() {
-    // Load Turndown library dynamically if not already loaded
-    if (!window.TurndownService) {
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = '/turndown.js';
-        script.onload = resolve;
-        script.onerror = reject;
-        document.body.appendChild(script);
-      });
-    }
-    const turndownService = new window.TurndownService({ headingStyle: 'atx' });
-
-    turndownService.remove('script');
-    turndownService.remove('style');
-    turndownService.remove('link');
-
-    function htmlToMarkdown(html) {
-  // Sanitize HTML before converting to markdown (extra safety)
-  html = DOMPurify.sanitize(html);
-      // Remove script/style/link tags before conversion
-      html = html.replace(/<script[\s\S]*?<\/script>/gi, '')
-                 .replace(/<style[\s\S]*?<\/style>/gi, '')
-                 .replace(/<link[\s\S]*?>/gi, '');
-      return turndownService.turndown(html).replace(/\n{2,}/g, '\n\n');
-    }
-
-    function buildThread(entries, parentId = null, depth = 0) {
-      // Recursively build markdown for entries (posts/replies) in thread order
-      let md = '';
-      // For top-level, parentId is null, so we use all entries
-      const children = parentId === null ? entries : (entries || []).filter(e => (e.parent_id || null) === parentId);
-      // Sort by created_at
-      children.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-      for (const entry of children) {
-        const author = entry.user?.display_name || entry.user_name || 'Unknown';
-        const date = entry.created_at ? new Date(entry.created_at).toLocaleString() : '';
-        const heading = `${'#'.repeat(2 + depth)} ${depth > 0 ? 'Reply: ' : ''}${author} at ${date}`;
-        let message = htmlToMarkdown(DOMPurify.sanitize(entry.message || ''));
-        // Indent replies with > for each depth level
-        if (depth > 0) {
-          message = message.split('\n').map(line => '>'.repeat(depth) + ' ' + line).join('\n');
-        }
-        md += `\n${heading}\n\n${message}\n`;
-        // Recursively add replies from _replies (threaded)
-        if (entry._replies && entry._replies.length > 0) {
-          md += buildThread(entry._replies, null, depth + 1);
-        }
-        // Recursively add replies based on parent_id (for legacy flat thread)
-        md += buildThread(entries, entry.id, depth + 1);
-      }
-      return md;
-    }
-
-    const apiUrl = localStorage.getItem('canvas_api_url') || '';
-    const apiKey = localStorage.getItem('canvas_api_key') || '';
-    const courseId = localStorage.getItem('course_id') || '';
-    if (credentialsMissing()) {
-      alert('Please set your Canvas API credentials and Course ID in Settings first.');
-      return;
-    }
-    // 1. Fetch all posts using the same pagination logic as the homepage
-    const allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
-    
-    // 2. Group posts by topic
-    const topicMap = {};
-    
-    // First, get all unique topics from the posts
-    allPosts.forEach(post => {
-      if (!topicMap[post.discussion_topic_id]) {
-        topicMap[post.discussion_topic_id] = {
-          id: post.discussion_topic_id,
-          title: post.topic_title,
-          assignment_id: post.assignment_id,
-          entries: []
-        };
-      }
-    });
-    
-    // Then organize posts into topic structure
-    allPosts.forEach(post => {
-      const topic = topicMap[post.discussion_topic_id];
-      if (post.parent_id) {
-        // This is a reply - find the parent entry and add it to _replies
-        const parentEntry = topic.entries.find(entry => entry.id === post.parent_id);
-        if (parentEntry) {
-          if (!parentEntry._replies) parentEntry._replies = [];
-          parentEntry._replies.push(post);
-        }
-      } else {
-        // This is a top-level entry
-        topic.entries.push(post);
-      }
-    });
-    
-    // Convert to array and fetch due dates
-    let topicEntries = Object.values(topicMap);
-    
-    // Fetch due dates for topics (this requires the original topic data)
-    const topicsRes = await fetch('/api/canvas-proxy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        apiUrl,
-        apiKey,
-        endpoint: `/courses/${courseId}/discussion_topics`,
-        method: 'GET'
-      })
-    });
-    
-    if (topicsRes.ok) {
-      const topics = await topicsRes.json();
-      // Merge due dates into our topic entries
-      topicEntries.forEach(topicEntry => {
-        const originalTopic = topics.find(t => t.id === topicEntry.id);
-        if (originalTopic) {
-          topicEntry.due_at = originalTopic.due_at;
-        }
-      });
-    }
-    // 3. Sort topics by due date (or title if no due date)
-    topicEntries.sort((a, b) => {
-      if (a.due_at && b.due_at) {
-        return new Date(a.due_at) - new Date(b.due_at);
-      }
-      if (a.due_at) return -1;
-      if (b.due_at) return 1;
-      return a.title.localeCompare(b.title);
-    });
-    // 4. Format as markdown
-    let md = '';
-    for (const topic of topicEntries) {
-      md += `# ${topic.title}\n`;
-      if (topic.due_at) {
-        md += `*Due: ${new Date(topic.due_at).toLocaleString()}*\n`;
-      }
-      if (topic.entries && topic.entries.length > 0) {
-        md += buildThread(topic.entries);
-      } else {
-        md += '\n_No posts in this topic._\n';
-      }
-      md += '\n---\n\n';
-    }
-    // 5. Trigger file download
-    const blob = new Blob([md], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `canvas-discussions-${courseId}.md`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 100);
-  }
-
-  const [apiUrl, setApiUrl] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  const [courseId, setCourseId] = useState('');
-  const [courseName, setCourseName] = useState('');
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
-  const [dataSource, setDataSource] = useState('');
-  const [cacheTimestamp, setCacheTimestamp] = useState(null);
-
   useEffect(() => {
     setApiUrl(localStorage.getItem('canvas_api_url') || '');
-    setApiKey(localStorage.getItem('canvas_api_key') || '');
+    setApiKey(localStorage.getItem('canvas_api_key') || '');  
     setCourseId(localStorage.getItem('course_id') || '');
   }, []);
 
@@ -208,39 +48,15 @@ export default function Home() {
       originalLog.apply(console, args);
     };
     
-    fetchCanvasDiscussions({ apiUrl, apiKey, courseId })
-      .then(posts => {
-        console.log = originalLog; // Restore original console.log
-        
-        // Update cache timestamp after fetch
-        const newTimestamp = getCacheTimestamp(courseId);
-        setCacheTimestamp(newTimestamp);
-        
-        if (posts.length > 0) {
-          // Debug: log the first post to see structure
-          console.log('First post:', posts[0]);
-        }
-        // Group posts by user
-        const userMap = {};
-        posts.forEach(post => {
-          // Try several possible fields for name
-          const name = post.user?.display_name || post.user_name || 'Unknown';
-          const lastActive = post.created_at || '';
-          const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-          const avatar = post.user?.avatar_image_url || null;
-          if (!userMap[name]) userMap[name] = { name, count: 0, lastActive, initials, avatar };
-          userMap[name].count++;
-          if (!userMap[name].lastActive || new Date(post.created_at) > new Date(userMap[name].lastActive)) {
-            userMap[name].lastActive = post.created_at;
-          }
-        });
-        setUsers(Object.values(userMap).sort((a, b) => b.count - a.count));
-      })
+    loadTopicData()
       .catch(e => {
         console.log = originalLog; // Restore original console.log
         setError(e.message);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        console.log = originalLog; // Restore original console.log
+        setLoading(false);
+      });
   }, [apiUrl, apiKey, courseId]);
 
   useEffect(() => {
@@ -270,33 +86,130 @@ export default function Home() {
     fetchCourseName();
   }, [apiUrl, apiKey, courseId]);
 
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(search.toLowerCase())
-  );
+  async function loadTopicData() {
+    // Get all discussion posts
+    const allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
+    
+    // Filter to only graded discussions (assignment-based topics)
+    const gradedPosts = filterGradedReflections(allPosts);
+    
+    // Get teacher user IDs to identify teacher replies
+    const teacherUserIds = await fetchCourseEnrollments(apiUrl, apiKey, courseId);
+    
+    // Group posts by discussion topic
+    const topicMap = {};
+    
+    gradedPosts.forEach(post => {
+      const topicId = post.discussion_topic_id;
+      
+      if (!topicMap[topicId]) {
+        topicMap[topicId] = {
+          id: topicId,
+          title: post.topic_title,
+          assignment_id: post.assignment_id,
+          studentPosts: [],
+          teacherReplies: [],
+          studentsNeedingGrades: new Set()
+        };
+      }
+      
+      const topic = topicMap[topicId];
+      const userId = post.user?.id || post.user_id;
+      const isTeacher = teacherUserIds.includes(parseInt(userId)) || teacherUserIds.includes(userId);
+      
+      if (isTeacher) {
+        // This is a teacher reply
+        topic.teacherReplies.push(post);
+      } else {
+        // This is a student post - check grading status
+        topic.studentPosts.push(post);
+        
+        const studentName = post.user?.display_name || post.user_name;
+        if (studentName) {
+          topic.studentsNeedingGrades.add(studentName);
+        }
+      }
+    });
+
+    // Now check grading status for each student post in each topic
+    const topicsArray = await Promise.all(Object.values(topicMap).map(async topic => {
+      // Count replies by teacher
+      const teacherReplyStats = {};
+      topic.teacherReplies.forEach(reply => {
+        const teacherName = reply.user?.display_name || reply.user_name || 'Unknown Teacher';
+        teacherReplyStats[teacherName] = (teacherReplyStats[teacherName] || 0) + 1;
+      });
+
+      // Check grading status for student posts
+      const studentsNeedingGrades = new Set();
+      
+      if (topic.assignment_id) {
+        // For each student post, check if they have been graded
+        const studentPosts = topic.studentPosts.filter(post => !post.parent_id); // Only top-level posts
+        
+        await Promise.all(studentPosts.map(async post => {
+          const studentName = post.user?.display_name || post.user_name;
+          const userId = post.user?.id || post.user_id;
+          
+          if (studentName && userId && topic.assignment_id) {
+            try {
+              const subRes = await fetch('/api/canvas-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  apiUrl,
+                  apiKey,
+                  endpoint: `/courses/${courseId}/assignments/${topic.assignment_id}/submissions/${userId}`,
+                  method: 'GET'
+                })
+              });
+              
+              if (subRes.ok) {
+                const submission = await subRes.json();
+                const isUngraded = !submission || submission.grade === null || submission.grade === undefined || submission.grade === '';
+                
+                if (isUngraded) {
+                  studentsNeedingGrades.add(studentName);
+                }
+              } else {
+                // If we can't fetch submission, assume needs grading
+                studentsNeedingGrades.add(studentName);
+              }
+            } catch {
+              // If error fetching, assume needs grading
+              studentsNeedingGrades.add(studentName);
+            }
+          }
+        }));
+      }
+
+      return {
+        ...topic,
+        teacherReplyStats,
+        studentsNeedingGrades: Array.from(studentsNeedingGrades),
+        totalStudentPosts: topic.studentPosts.length,
+        totalTeacherReplies: topic.teacherReplies.length
+      };
+    }));
+
+    // Sort by title
+    topicsArray.sort((a, b) => a.title.localeCompare(b.title));
+    
+    // Update cache timestamp after processing
+    const newTimestamp = getCacheTimestamp(courseId);
+    setCacheTimestamp(newTimestamp);
+    
+    setTopics(topicsArray);
+  }
 
   function handleRefreshData() {
     clearCache(courseId);
     setDataSource('');
     setCacheTimestamp(null);
-    // Trigger re-fetch by updating a dependency
     setLoading(true);
-    fetchCanvasDiscussions({ apiUrl, apiKey, courseId })
-      .then(posts => {
-        const userMap = {};
-        posts.forEach(post => {
-          const name = post.user?.display_name || post.user_name || 'Unknown';
-          const lastActive = post.created_at || '';
-          const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-          const avatar = post.user?.avatar_image_url || null;
-          if (!userMap[name]) userMap[name] = { name, count: 0, lastActive, initials, avatar };
-          userMap[name].count++;
-          if (!userMap[name].lastActive || new Date(post.created_at) > new Date(userMap[name].lastActive)) {
-            userMap[name].lastActive = post.created_at;
-          }
-        });
-        setUsers(Object.values(userMap).sort((a, b) => b.count - a.count));
+    loadTopicData()
+      .then(() => {
         setDataSource('fresh');
-        // Update timestamp after successful refresh
         const newTimestamp = getCacheTimestamp(courseId);
         setCacheTimestamp(newTimestamp);
       })
@@ -306,7 +219,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-red-900 text-white shadow-md  mx-auto">
+      <header className="bg-red-900 text-white shadow-md mx-auto">
         <div className="container mx-auto max-w-6xl px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
             <h1 className="text-2xl font-bold flex items-center">
@@ -320,11 +233,8 @@ export default function Home() {
             <a href="/" className="text-white hover:text-gray-200 transition-colors border-b">
               <i className="fas fa-home mr-1"></i> Home
             </a>
-            <a href="/verify" className="text-white hover:text-gray-200 transition-colors">
-              <i className="fas fa-check-double mr-1"></i> Verify
-            </a>
-            <a href="/analysis" className="text-white hover:text-gray-200 transition-colors">
-              <i className="fas fa-chart-bar mr-1"></i> Analysis
+            <a href="/users" className="text-white hover:text-gray-200 transition-colors">
+              <i className="fas fa-users mr-1"></i> Users
             </a>
             <a href="/settings" className="text-white hover:text-gray-200 transition-colors">
               <i className="fas fa-cog mr-1"></i> Settings
@@ -335,9 +245,10 @@ export default function Home() {
           </nav>
         </div>
       </header>
+
       <main className="max-w-6xl mx-auto px-4 py-8">
-      <p className="text-gray-600 mb-6 font-bold">An experimental app for viewing a user's discussion posts across all discussion topics.</p>
-             
+        <p className="text-gray-600 mb-6 font-bold">Discussion Topics Dashboard - Track grading progress and teacher feedback equity across discussion assignments.</p>
+        
         {credentialsMissing() ? (
           <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-900 p-6 mb-8 rounded">
             <h2 className="text-xl font-bold mb-2">Canvas API Credentials Required</h2>
@@ -347,92 +258,94 @@ export default function Home() {
         ) : (
           <div>
             <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <p className="text-gray-600 mb-2">
-                {/* Optionally show course ID here */}
-              </p>
-              <div className="mb-6">
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center gap-4">
-                    <h2 className="text-2xl font-semibold text-gray-800">Users ({filteredUsers.length})</h2>
-                    {cacheTimestamp && (
-                      <span className="text-sm px-2 py-1 rounded bg-green-100 text-green-800">
-                        ⚡ Last refreshed: {new Date(cacheTimestamp).toLocaleString()}
-                      </span>
-                    )}
-                    {dataSource === 'fresh' && !cacheTimestamp && (
-                      <span className="text-sm px-2 py-1 rounded bg-blue-100 text-blue-800">
-                        🔄 Fresh data
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="Search users..."
-                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#501315] focus:border-transparent"
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                      />
-                      <i className="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-                    </div>
-                    <button
-                      className="bg-gray-600 text-white px-3 py-2 rounded-md font-semibold hover:bg-gray-700 transition-colors whitespace-nowrap"
-                      onClick={handleRefreshData}
-                      disabled={loading}
-                    >
-                      🔄 Refresh
-                    </button>
-                    <button
-                      className="bg-red-900 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-800 transition-colors whitespace-nowrap"
-                      onClick={handleDownloadMarkdown}
-                    >
-                      Download All Discussions
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {loading ? (
-                    <div className="text-red-900 font-semibold">Loading users...</div>
-                  ) : error ? (
-                    <div className="text-red-700 font-semibold">{error}</div>
-                  ) : filteredUsers.length === 0 ? (
-                    <div className="text-gray-500">No users found.</div>
-                  ) : (
-                    filteredUsers.map(user => (
-                      <Link
-                        key={user.name}
-                        href={`/user/${encodeURIComponent(user.name)}`}
-                        className="block hover:bg-gray-50 rounded-lg p-4 transition-colors duration-150 user-card border border-gray-200"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            <div className="flex-shrink-0">
-                              {user.avatar ? (
-                                <img src={user.avatar} alt={user.name} className="h-10 w-10 rounded-full object-cover" />
-                              ) : (
-                                <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center text-red-900 font-semibold user-initials">
-                                  {user.initials}
-                                </div>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-gray-900 truncate user-name">{user.name}</p>
-                              <div className="flex items-center text-xs text-gray-500 mt-1">
-                                <span className="mr-3"><i className="fas fa-comment-alt mr-1"></i> {user.count} posts</span>
-                                <span><i className="fas fa-clock mr-1"></i> Last active: {user.lastActive ? new Date(user.lastActive).toLocaleString() : 'Never'}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-red-900">
-                            <i className="fas fa-chevron-right"></i>
-                          </div>
-                        </div>
-                      </Link>
-                    ))
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-2xl font-semibold text-gray-800">Discussion Topics ({topics.length})</h2>
+                  {cacheTimestamp && (
+                    <span className="text-sm px-2 py-1 rounded bg-green-100 text-green-800">
+                      ⚡ Last refreshed: {new Date(cacheTimestamp).toLocaleString()}
+                    </span>
+                  )}
+                  {dataSource === 'fresh' && !cacheTimestamp && (
+                    <span className="text-sm px-2 py-1 rounded bg-blue-100 text-blue-800">
+                      🔄 Fresh data
+                    </span>
                   )}
                 </div>
+                <button
+                  className="bg-gray-600 text-white px-3 py-2 rounded-md font-semibold hover:bg-gray-700 transition-colors whitespace-nowrap"
+                  onClick={handleRefreshData}
+                  disabled={loading}
+                >
+                  🔄 Refresh
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {loading ? (
+                  <div className="text-red-900 font-semibold">Loading topics...</div>
+                ) : error ? (
+                  <div className="text-red-700 font-semibold">{error}</div>
+                ) : topics.length === 0 ? (
+                  <div className="text-gray-500">No graded discussion topics found.</div>
+                ) : (
+                  topics.map(topic => (
+                    <div key={topic.id} className="border border-gray-200 rounded-lg p-6 bg-white">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-4">{topic.title}</h3>
+                      
+                      {/* Teacher Feedback Stats */}
+                      <div className="mb-4">
+                        <h4 className="text-lg font-medium text-gray-700 mb-2">
+                          Feedback: 
+                          {Object.keys(topic.teacherReplyStats).length === 0 ? (
+                            <span className="text-red-600 ml-2">No teacher replies yet</span>
+                          ) : (
+                            <span className="ml-2">
+                              {Object.entries(topic.teacherReplyStats).map(([teacher, count], index) => (
+                                <span key={teacher}>
+                                  {index > 0 && ', '}
+                                  <span className="text-blue-600">{teacher}</span> ({count})
+                                </span>
+                              ))}
+                            </span>
+                          )}
+                        </h4>
+                      </div>
+
+                      {/* Students Needing Grades */}
+                      {topic.studentsNeedingGrades.length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="text-lg font-medium text-gray-700 mb-2">
+                            Students needing grades ({topic.studentsNeedingGrades.length}):
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {topic.studentsNeedingGrades.map(studentName => (
+                              <Link
+                                key={studentName}
+                                href={`/user/${encodeURIComponent(studentName)}`}
+                                className="inline-block bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm hover:bg-red-200 transition-colors"
+                              >
+                                {studentName}
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Summary Stats */}
+                      <div className="text-sm text-gray-600 pt-2 border-t">
+                        <span className="mr-4">
+                          <i className="fas fa-users mr-1"></i>
+                          {topic.totalStudentPosts} student posts
+                        </span>
+                        <span>
+                          <i className="fas fa-reply mr-1"></i>
+                          {topic.totalTeacherReplies} teacher replies
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

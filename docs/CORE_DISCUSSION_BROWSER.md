@@ -2,13 +2,18 @@
 
 ## Overview
 
-The Canvas Discussion Browser is a Next.js application that provides an intuitive interface for educators to view and analyze Canvas LMS discussion posts by individual users across all course topics. Built using the Pages Router architecture, it offers essential functionality for course management and grading workflows.
+The Canvas Discussion Browser is a Next.js application that provides an intuitive interface for educators to view and analyze Canvas LMS discussion posts. Built using the Pages Router architecture, it offers essential functionality for course management and grading workflows.
+
+**Current Structure:**
+- **Homepage (`/`)**: Topic-based grading dashboard (see `GRADING_DASHBOARD.md`)
+- **Users Page (`/users`)**: Individual user analysis (original functionality documented below)
+- **Settings (`/settings`)**: API configuration
 
 ## Core Features
 
-### 1. 🏠 **Home Page Discussion Browser** (`/`)
+### 1. 👥 **Users Page Discussion Browser** (`/users`)
 
-#### **User-Centric View**
+#### **User-Centric View** (Archived from original homepage)
 - **User Aggregation**: Groups all discussion posts by participant using display names
 - **Post Count Display**: Shows total number of posts per user for quick engagement overview
 - **Last Active Tracking**: Displays when each user was last active in discussions
@@ -141,22 +146,28 @@ The Canvas Discussion Browser is a Next.js application that provides an intuitiv
 1. Navigate to Settings page
 2. Enter Canvas API URL, access token, and course ID
 3. Verify connection (course name displays)
-4. Return to home page to view discussions
+4. Return to home page for grading dashboard
 
-#### **Student Review**
-1. Home page shows all participants with post counts
+#### **Grading Workflow** (New Primary Flow)
+1. Home page shows grading dashboard organized by topics
+2. Review which students need grades per assignment
+3. Click student names to access individual views
+4. Use SpeedGrader integration for efficient grading
+
+#### **Student Review** (Secondary Flow)
+1. Navigate to Users page for participant overview
 2. Click on student name to view their posts
 3. Review posts chronologically with context
-4. Use SpeedGrader links for grading when applicable
+4. Access SpeedGrader links for grading
 
 #### **Course Export**
-1. Click "Download All Discussions" on home page
+1. Available from Users page - "Download All Discussions" button
 2. Receive complete markdown file with all course discussions
 3. File includes threaded structure and due date organization
 
 ### **Navigation Flow**
 - **Consistent Header**: All pages include navigation menu
-- **Breadcrumb-style**: Clear path between home → user pages
+- **Home → Users → Individual**: Clear path from grading dashboard to user analysis
 - **Settings Access**: Always available from any page
 - **GitHub Link**: Open source transparency
 
@@ -186,9 +197,9 @@ The Canvas Discussion Browser is a Next.js application that provides an intuitiv
 
 ```
 pages/
-├── index.js          # Home page - user list and export
+├── index.js          # Home page - grading dashboard (NEW)
+├── users.js          # Users page - user list and export (MOVED)
 ├── settings.js       # API configuration
-├── dashboard.js      # Legacy dashboard (unused)
 ├── user/
 │   └── [user_name].js # Individual user post view
 └── api/
@@ -198,4 +209,6 @@ js/
 └── canvasApi.js      # Canvas API client functions
 ```
 
-This original feature set provides the foundation for the enhanced analytics and verification features documented in `NEW_FEATURES.md`.
+This original feature set provides the foundation for:
+- Enhanced analytics and verification features documented in `ANALYTICS_AND_VERIFICATION.md`
+- New grading dashboard functionality documented in `GRADING_DASHBOARD.md`
