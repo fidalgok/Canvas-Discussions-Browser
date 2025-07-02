@@ -102,12 +102,28 @@ export async function fetchCanvasDiscussions({ apiUrl, apiKey, courseId }) {
     method: 'GET'
   });
 
+  // DEBUG: Log topics structure for troubleshooting
+  console.log('🔍 DEBUG: Found', topics.length, 'discussion topics');
+  if (topics.length > 0) {
+    console.log('🔍 DEBUG: First topic structure:', {
+      id: topics[0].id,
+      title: topics[0].title,
+      assignment_id: topics[0].assignment_id,
+      published: topics[0].published,
+      discussion_type: topics[0].discussion_type
+    });
+  } else {
+    console.log('⚠️ DEBUG: No discussion topics found - this may be why no users are showing up');
+  }
+
   // Step 2: Fetch all discussion entries and replies for each topic
   // Use Set-based deduplication to prevent duplicate posts across topics
   const seenIds = new Set(); // Track unique post IDs to prevent duplicates
   let allPosts = [];
 
   for (const topic of topics) {
+    console.log(`🔍 DEBUG: Processing topic "${topic.title}" (ID: ${topic.id})`);
+    
     // Fetch all top-level entries for this topic with full pagination
     let allEntries = [];
     let page = 1;
@@ -122,6 +138,7 @@ export async function fetchCanvasDiscussions({ apiUrl, apiKey, courseId }) {
         method: 'GET'
       });
       
+      console.log(`🔍 DEBUG: Topic "${topic.title}" page ${page}: found ${entries.length} entries`);
       allEntries = allEntries.concat(entries);
       
       // Canvas pagination: if we get fewer than 100 results, we've reached the last page
@@ -130,6 +147,7 @@ export async function fetchCanvasDiscussions({ apiUrl, apiKey, courseId }) {
     }
     
     const entries = allEntries;
+    console.log(`🔍 DEBUG: Topic "${topic.title}" total entries: ${entries.length}`);
 
     // Process each top-level discussion entry
     for (const entry of entries) {
@@ -182,6 +200,23 @@ export async function fetchCanvasDiscussions({ apiUrl, apiKey, courseId }) {
         }
       }
     }
+  }
+
+  // DEBUG: Final summary
+  console.log(`🔍 DEBUG: Final summary - Found ${allPosts.length} total posts across ${topics.length} topics`);
+  if (allPosts.length > 0) {
+    const userCounts = {};
+    allPosts.forEach(post => {
+      const name = post.user?.display_name || post.user_name || 'Unknown';
+      userCounts[name] = (userCounts[name] || 0) + 1;
+    });
+    console.log('🔍 DEBUG: User post counts:', userCounts);
+  } else {
+    console.log('⚠️ DEBUG: No posts found - possible causes:');
+    console.log('   - Course has no discussion topics');
+    console.log('   - Discussion topics exist but have no posts');
+    console.log('   - API permissions issue (teacher vs student access)');
+    console.log('   - Topics are unpublished or restricted');
   }
 
   // Cache the complete dataset in browser localStorage
