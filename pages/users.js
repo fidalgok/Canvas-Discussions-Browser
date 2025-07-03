@@ -1,7 +1,15 @@
+/**
+ * Users Page (/users)
+ * 
+ * Displays a comprehensive list of all students in the course with grading status indicators.
+ * Shows user avatars, post counts, last activity, and highlights students who need grading.
+ * Includes markdown export functionality for downloading all discussions.
+ */
+
 import { useEffect, useState } from 'react';
 import DOMPurify from 'dompurify';
 import Link from 'next/link';
-import { fetchCanvasDiscussions, clearCache, getCacheTimestamp } from '../js/canvasApi';
+import { fetchCanvasDiscussions } from '../js/canvasApi';
 
 export default function Home() {
   // ...existing state
@@ -72,44 +80,7 @@ export default function Home() {
       alert('Please set your Canvas API credentials and Course ID in Settings first.');
       return;
     }
-    // 1. Fetch all posts using the same pagination logic as the homepage
-    const allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
-    
-    // 2. Group posts by topic
-    const topicMap = {};
-    
-    // First, get all unique topics from the posts
-    allPosts.forEach(post => {
-      if (!topicMap[post.discussion_topic_id]) {
-        topicMap[post.discussion_topic_id] = {
-          id: post.discussion_topic_id,
-          title: post.topic_title,
-          assignment_id: post.assignment_id,
-          entries: []
-        };
-      }
-    });
-    
-    // Then organize posts into topic structure
-    allPosts.forEach(post => {
-      const topic = topicMap[post.discussion_topic_id];
-      if (post.parent_id) {
-        // This is a reply - find the parent entry and add it to _replies
-        const parentEntry = topic.entries.find(entry => entry.id === post.parent_id);
-        if (parentEntry) {
-          if (!parentEntry._replies) parentEntry._replies = [];
-          parentEntry._replies.push(post);
-        }
-      } else {
-        // This is a top-level entry
-        topic.entries.push(post);
-      }
-    });
-    
-    // Convert to array and fetch due dates
-    let topicEntries = Object.values(topicMap);
-    
-    // Fetch due dates for topics (this requires the original topic data)
+    // 1. Fetch all topics
     const topicsRes = await fetch('/api/canvas-proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -120,15 +91,45 @@ export default function Home() {
         method: 'GET'
       })
     });
-    
-    if (topicsRes.ok) {
-      const topics = await topicsRes.json();
-      // Merge due dates into our topic entries
-      topicEntries.forEach(topicEntry => {
-        const originalTopic = topics.find(t => t.id === topicEntry.id);
-        if (originalTopic) {
-          topicEntry.due_at = originalTopic.due_at;
-        }
+    if (!topicsRes.ok) {
+      alert('Failed to fetch discussion topics.');
+      return;
+    }
+    const topics = await topicsRes.json();
+    // 2. For each topic, fetch entries and their replies
+    let topicEntries = [];
+    for (const topic of topics) {
+      // Fetch top-level entries
+      const entriesRes = await fetch('/api/canvas-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiUrl,
+          apiKey,
+          endpoint: `/courses/${courseId}/discussion_topics/${topic.id}/entries`,
+          method: 'GET'
+        })
+      });
+      let entries = entriesRes.ok ? await entriesRes.json() : [];
+      // For each entry, fetch its replies (threaded replies)
+      for (const entry of entries) {
+        // Replies endpoint: /discussion_topics/:topic_id/entries/:entry_id/replies
+        const repliesRes = await fetch('/api/canvas-proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            apiUrl,
+            apiKey,
+            endpoint: `/courses/${courseId}/discussion_topics/${topic.id}/entries/${entry.id}/replies`,
+            method: 'GET'
+          })
+        });
+        const replies = repliesRes.ok ? await repliesRes.json() : [];
+        entry._replies = replies;
+      }
+      topicEntries.push({
+        ...topic,
+        entries,
       });
     }
     // 3. Sort topics by due date (or title if no due date)
@@ -173,11 +174,11 @@ export default function Home() {
   const [courseId, setCourseId] = useState('');
   const [courseName, setCourseName] = useState('');
   const [users, setUsers] = useState([]);
+  const [allStudents, setAllStudents] = useState([]); // full roster
+  const [ungradedMap, setUngradedMap] = useState({}); // user_id: true if has ungraded
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [dataSource, setDataSource] = useState('');
-  const [cacheTimestamp, setCacheTimestamp] = useState(null);
 
   useEffect(() => {
     setApiUrl(localStorage.getItem('canvas_api_url') || '');
@@ -189,58 +190,117 @@ export default function Home() {
     if (!apiUrl || !apiKey || !courseId) return;
     setLoading(true);
     setError('');
-    setDataSource('');
-    
-    // Check for existing cache timestamp
-    const existingTimestamp = getCacheTimestamp(courseId);
-    setCacheTimestamp(existingTimestamp);
-    
-    // Listen for console messages to detect cache usage
-    const originalLog = console.log;
-    console.log = function(...args) {
-      if (args[0] === '✓ Using cached discussion data') {
-        setDataSource('cached');
-        setCacheTimestamp(existingTimestamp);
-      } else if (args[0] === '→ Fetching fresh discussion data from Canvas API') {
-        setDataSource('fresh');
-        setCacheTimestamp(null);
-      }
-      originalLog.apply(console, args);
-    };
-    
-    fetchCanvasDiscussions({ apiUrl, apiKey, courseId })
-      .then(posts => {
-        console.log = originalLog; // Restore original console.log
-        
-        // Update cache timestamp after fetch
-        const newTimestamp = getCacheTimestamp(courseId);
-        setCacheTimestamp(newTimestamp);
-        
-        if (posts.length > 0) {
-          // Debug: log the first post to see structure
-          console.log('First post:', posts[0]);
+
+    async function fetchAll() {
+      try {
+        // 1. Fetch full roster
+        const rosterRes = await fetch('/api/canvas-proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            apiUrl,
+            apiKey,
+            endpoint: `/courses/${courseId}/users?enrollment_type[]=student&per_page=100`,
+            method: 'GET'
+          })
+        });
+        const roster = rosterRes.ok ? await rosterRes.json() : [];
+        setAllStudents(roster);
+
+        // 2. Fetch all discussion topics
+        const topicsRes = await fetch('/api/canvas-proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            apiUrl,
+            apiKey,
+            endpoint: `/courses/${courseId}/discussion_topics`,
+            method: 'GET'
+          })
+        });
+        const topics = topicsRes.ok ? await topicsRes.json() : [];
+        // Only graded (has assignment_id and points > 0)
+        // Fetch all assignments for the course in one call
+        const allAssignRes = await fetch('/api/canvas-proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            apiUrl,
+            apiKey,
+            endpoint: `/courses/${courseId}/assignments?per_page=100`,
+            method: 'GET'
+          })
+        });
+        let allAssignments = [];
+        if (allAssignRes.ok) {
+          allAssignments = await allAssignRes.json();
         }
-        // Group posts by user
+        const assignments = {};
+        for (const a of allAssignments) {
+          assignments[a.id] = a;
+        }
+        // Only include topics where assignment.points_possible >= 1
+        let gradedTopics = topics
+          .filter(t => t.assignment_id && assignments[t.assignment_id] && Number(assignments[t.assignment_id].points_possible) >= 1)
+          .map(t => ({ ...t, points_possible: Number(assignments[t.assignment_id].points_possible) }));
+
+
+        // 3. Fetch all submissions for each graded assignment
+        let allSubmissions = [];
+        for (const topic of gradedTopics) {
+          const subRes = await fetch('/api/canvas-proxy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              apiUrl,
+              apiKey,
+              endpoint: `/courses/${courseId}/assignments/${topic.assignment_id}/submissions`,
+              method: 'GET'
+            })
+          });
+          const subs = subRes.ok ? await subRes.json() : [];
+          // Canvas returns as array or object (id=>sub), normalize
+          const subList = Array.isArray(subs) ? subs : Object.values(subs);
+          allSubmissions = allSubmissions.concat(subList.map(s => ({ ...s, assignment_id: topic.assignment_id })));
+        }
+
+        // 4. Build ungraded map: user_id => true if any ungraded
+        const ungraded = {};
+        for (const student of roster) {
+          for (const topic of gradedTopics) {
+            const sub = allSubmissions.find(s => s.user_id === student.id && s.assignment_id === topic.assignment_id);
+            console.log('DEBUG: Checking ungraded for student', student.id, 'assignment', topic.assignment_id, 'grade:', sub && sub.grade, 'submission:', sub);
+            if (sub && (sub.grade === null || sub.grade === undefined || sub.grade === '')) {
+              ungraded[student.id] = true;
+              break;
+            }
+          }
+        }
+        setUngradedMap(ungraded);
+
+        // 5. Group posts by user for last active
+        const posts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
         const userMap = {};
         posts.forEach(post => {
-          // Try several possible fields for name
           const name = post.user?.display_name || post.user_name || 'Unknown';
           const lastActive = post.created_at || '';
           const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
           const avatar = post.user?.avatar_image_url || null;
-          if (!userMap[name]) userMap[name] = { name, count: 0, lastActive, initials, avatar };
-          userMap[name].count++;
-          if (!userMap[name].lastActive || new Date(post.created_at) > new Date(userMap[name].lastActive)) {
-            userMap[name].lastActive = post.created_at;
+          const userId = post.user_id || post.user?.id;
+          if (!userMap[userId]) userMap[userId] = { name, count: 0, lastActive, initials, avatar, userId };
+          userMap[userId].count++;
+          if (!userMap[userId].lastActive || new Date(post.created_at) > new Date(userMap[userId].lastActive)) {
+            userMap[userId].lastActive = post.created_at;
           }
         });
-        setUsers(Object.values(userMap).sort((a, b) => b.count - a.count));
-      })
-      .catch(e => {
-        console.log = originalLog; // Restore original console.log
-        setError(e.message);
-      })
-      .finally(() => setLoading(false));
+        setUsers(userMap);
+        setLoading(false);
+      } catch (err) {
+        setError('Failed to fetch users or submissions.');
+        setLoading(false);
+      }
+    }
+    fetchAll();
   }, [apiUrl, apiKey, courseId]);
 
   useEffect(() => {
@@ -270,49 +330,13 @@ export default function Home() {
     fetchCourseName();
   }, [apiUrl, apiKey, courseId]);
 
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(search.toLowerCase())
-  );
-
-  function handleRefreshData() {
-    clearCache(courseId);
-    setDataSource('');
-    setCacheTimestamp(null);
-    // Trigger re-fetch by updating a dependency
-    setLoading(true);
-    fetchCanvasDiscussions({ apiUrl, apiKey, courseId })
-      .then(posts => {
-        const userMap = {};
-        posts.forEach(post => {
-          const name = post.user?.display_name || post.user_name || 'Unknown';
-          const lastActive = post.created_at || '';
-          const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-          const avatar = post.user?.avatar_image_url || null;
-          if (!userMap[name]) userMap[name] = { name, count: 0, lastActive, initials, avatar };
-          userMap[name].count++;
-          if (!userMap[name].lastActive || new Date(post.created_at) > new Date(userMap[name].lastActive)) {
-            userMap[name].lastActive = post.created_at;
-          }
-        });
-        setUsers(Object.values(userMap).sort((a, b) => b.count - a.count));
-        setDataSource('fresh');
-        // Update timestamp after successful refresh
-        const newTimestamp = getCacheTimestamp(courseId);
-        setCacheTimestamp(newTimestamp);
-      })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-red-900 text-white shadow-md  mx-auto">
-        <div className="container mx-auto max-w-6xl px-4 py-4 flex justify-between items-center">
+      <header className="bg-red-900 text-white shadow-md">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
             <h1 className="text-2xl font-bold flex items-center">
-              <a href="/" className="flex items-center hover:text-gray-200 transition-colors">
-                <i className="fas fa-comments mr-2"></i>Canvas Discussion Browser
-              </a>
+              <i className="fas fa-comments mr-2"></i>Canvas Discussions
               <span className="ml-4 text-lg font-normal text-gray-200">{courseName ? courseName : 'Loading...'}</span>
             </h1>
           </div>
@@ -322,6 +346,9 @@ export default function Home() {
             </a>
             <a href="/users" className="text-white hover:text-gray-200 transition-colors border-b">
               <i className="fas fa-users mr-1"></i> Users
+            </a>
+            <a href="/feedback" className="text-white hover:text-gray-200 transition-colors">
+              <i className="fas fa-comments mr-1"></i> Feedback
             </a>
             <a href="/settings" className="text-white hover:text-gray-200 transition-colors">
               <i className="fas fa-cog mr-1"></i> Settings
@@ -333,8 +360,6 @@ export default function Home() {
         </div>
       </header>
       <main className="max-w-6xl mx-auto px-4 py-8">
-      <p className="text-gray-600 mb-6 font-bold">User-based view for viewing individual student discussion posts across all topics.</p>
-             
         {credentialsMissing() ? (
           <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-900 p-6 mb-8 rounded">
             <h2 className="text-xl font-bold mb-2">Canvas API Credentials Required</h2>
@@ -343,93 +368,77 @@ export default function Home() {
           </div>
         ) : (
           <div>
+            <div className="flex justify-end mb-4">
+              <button
+                className="bg-red-900 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-800 transition-colors"
+                onClick={handleDownloadMarkdown}
+              >
+                Download All Discussions (Markdown)
+              </button>
+            </div>
             <div className="bg-white rounded-lg shadow-md p-6 mb-6">
               <p className="text-gray-600 mb-2">
                 {/* Optionally show course ID here */}
               </p>
+              <p className="text-gray-600 mb-6">View participation across all discussion topics, grouped by user.</p>
               <div className="mb-6">
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center gap-4">
-                    <h2 className="text-2xl font-semibold text-gray-800">Users ({filteredUsers.length})</h2>
-                    {cacheTimestamp && (
-                      <span className="text-sm px-2 py-1 rounded bg-green-100 text-green-800">
-                        ⚡ Last refreshed: {new Date(cacheTimestamp).toLocaleString()}
-                      </span>
-                    )}
-                    {dataSource === 'fresh' && !cacheTimestamp && (
-                      <span className="text-sm px-2 py-1 rounded bg-blue-100 text-blue-800">
-                        🔄 Fresh data
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="Search users..."
-                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#501315] focus:border-transparent"
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                      />
-                      <i className="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-                    </div>
-                    <button
-                      className="bg-gray-600 text-white px-3 py-2 rounded-md font-semibold hover:bg-gray-700 transition-colors whitespace-nowrap"
-                      onClick={handleRefreshData}
-                      disabled={loading}
-                    >
-                      🔄 Refresh
-                    </button>
-                    <button
-                      className="bg-red-900 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-800 transition-colors whitespace-nowrap"
-                      onClick={handleDownloadMarkdown}
-                    >
-                      Download All Discussions
-                    </button>
-                  </div>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-semibold text-gray-800">Users</h2>
+                  <span className="bg-red-950 px-3 py-1 rounded-full text-white text-sm font-medium">{allStudents.length}</span>
                 </div>
-
-                <div className="space-y-3">
-                  {loading ? (
-                    <div className="text-red-900 font-semibold">Loading users...</div>
-                  ) : error ? (
-                    <div className="text-red-700 font-semibold">{error}</div>
-                  ) : filteredUsers.length === 0 ? (
-                    <div className="text-gray-500">No users found.</div>
-                  ) : (
-                    filteredUsers.map(user => (
-                      <Link
-                        key={user.name}
-                        href={`/user/${encodeURIComponent(user.name)}`}
-                        className="block hover:bg-gray-50 rounded-lg p-4 transition-colors duration-150 user-card border border-gray-200"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            <div className="flex-shrink-0">
+                {loading ? (
+                  <div className="text-red-900 font-semibold">Loading users...</div>
+                ) : error ? (
+                  <div className="text-red-700 font-semibold">{error}</div>
+                ) : (
+                  <>
+                    <h2 className="text-2xl font-bold mb-6">Users</h2>
+                    <ul className="divide-y divide-gray-200">
+                      {allStudents
+                        .map(student => {
+                          const user = Object.values(users).find(u => u.userId === student.id) || {
+                            name: student.name || student.sortable_name || 'Unknown',
+                            count: 0,
+                            lastActive: '',
+                            initials: (student.name || student.sortable_name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
+                            avatar: student.avatar_url || null,
+                            userId: student.id
+                          };
+                          return { ...user, hasUngraded: !!ungradedMap[student.id], studentId: student.id };
+                        })
+                        .sort((a, b) => {
+                          // Sort by hasUngraded first, then lastActive desc
+                          if (a.hasUngraded && !b.hasUngraded) return -1;
+                          if (!a.hasUngraded && b.hasUngraded) return 1;
+                          return new Date(b.lastActive || 0) - new Date(a.lastActive || 0);
+                        })
+                        .map(user => (
+                          <li key={user.studentId} className="flex items-center justify-between py-3">
+                            <div className="flex items-center gap-3">
                               {user.avatar ? (
                                 <img src={user.avatar} alt={user.name} className="h-10 w-10 rounded-full object-cover" />
                               ) : (
-                                <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center text-red-900 font-semibold user-initials">
+                                <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center text-red-900 font-semibold">
                                   {user.initials}
                                 </div>
                               )}
+                              <Link href={`/user/${encodeURIComponent(user.name)}`} className="text-lg font-semibold text-red-900 hover:underline">
+                                {user.name}
+                              </Link>
+                              <span className="text-gray-500 text-sm">({user.count} posts)</span>
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-gray-900 truncate user-name">{user.name}</p>
-                              <div className="flex items-center text-xs text-gray-500 mt-1">
-                                <span className="mr-3"><i className="fas fa-comment-alt mr-1"></i> {user.count} posts</span>
-                                <span><i className="fas fa-clock mr-1"></i> Last active: {user.lastActive ? new Date(user.lastActive).toLocaleString() : 'Never'}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-red-900">
-                            <i className="fas fa-chevron-right"></i>
-                          </div>
-                        </div>
-                      </Link>
-                    ))
-                  )}
-                </div>
+                            {user.hasUngraded && (
+                              <span title="Needs Grading" className="flex items-center gap-1 text-red-700 font-semibold">
+                                <i className="fas fa-file-circle-exclamation" style={{ color: '#b91c1c', fontSize: 22 }}></i>
+                                Needs Grading
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                    </ul>
+                  </>
+                )}
+
               </div>
             </div>
           </div>

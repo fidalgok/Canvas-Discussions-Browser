@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { fetchCanvasDiscussions, clearCache, getCacheTimestamp } from '../js/canvasApi';
 import { fetchCourseEnrollments } from '../js/dataUtils';
 
-export default function Home() {
+export default function RecentActivity() {
   const [apiUrl, setApiUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [courseId, setCourseId] = useState('');
@@ -109,9 +109,7 @@ export default function Home() {
       discussionName: post.topic_title || 'Unknown Discussion',
       createdAt: post.created_at,
       postId: post.id,
-      topicId: post.discussion_topic_id,
-      avatar: post.user?.avatar_image_url || null,
-      initials: (post.user?.display_name || post.user_name || 'Unknown').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+      topicId: post.discussion_topic_id
     }));
     
     // Count unique users
@@ -153,8 +151,14 @@ export default function Home() {
             </h1>
           </div>
           <nav className="flex items-center space-x-4 text-sm">
-            <a href="/" className="text-white hover:text-gray-200 transition-colors border-b">
+            <a href="/" className="text-white hover:text-gray-200 transition-colors">
               <i className="fas fa-home mr-1"></i> Home
+            </a>
+            <a href="/users" className="text-white hover:text-gray-200 transition-colors">
+              <i className="fas fa-users mr-1"></i> Users
+            </a>
+            <a href="/recent-activity" className="text-white hover:text-gray-200 transition-colors border-b">
+              <i className="fas fa-clock mr-1"></i> Recent Activity
             </a>
             <a href="/feedback" className="text-white hover:text-gray-200 transition-colors">
               <i className="fas fa-comments mr-1"></i> Feedback
@@ -213,27 +217,22 @@ export default function Home() {
                   <div className="text-gray-500">No recent activity found.</div>
                 ) : (
                   recentActivity.map((activity, index) => (
-                    <Link
-                      key={index}
-                      href={`/user/${encodeURIComponent(activity.userName)}`}
-                      className="block hover:bg-gray-50 rounded-lg p-4 transition-colors duration-150 border border-gray-200"
-                    >
+                    <div key={index} className="border border-gray-200 rounded-lg p-4 bg-white hover:bg-gray-50 transition-colors">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
                           <div className="flex-shrink-0">
-                            {activity.avatar ? (
-                              <img src={activity.avatar} alt={activity.userName} className="h-10 w-10 rounded-full object-cover" />
-                            ) : (
-                              <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center text-red-900 font-semibold">
-                                {activity.initials}
-                              </div>
-                            )}
+                            <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center text-red-900 font-semibold text-sm">
+                              {activity.userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                            </div>
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="text-sm text-gray-900">
-                              <span className="font-medium text-red-900">
+                              <Link 
+                                href={`/user/${encodeURIComponent(activity.userName)}`}
+                                className="font-medium text-red-900 hover:underline"
+                              >
                                 {activity.userName}
-                              </span>
+                              </Link>
                               {' '}posted to{' '}
                               <span className="font-medium text-gray-700">{activity.discussionName}</span>
                               {' '}at{' '}
@@ -241,11 +240,8 @@ export default function Home() {
                             </p>
                           </div>
                         </div>
-                        <div className="text-red-900">
-                          <i className="fas fa-chevron-right"></i>
-                        </div>
                       </div>
-                    </Link>
+                    </div>
                   ))
                 )}
               </div>
