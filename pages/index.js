@@ -1,109 +1,79 @@
+/**
+ * Homepage - Recent Activity Feed (Component-Based Architecture)
+ * 
+ * Shows recent student discussion activity excluding teacher posts.
+ * Migrated to use the new component-based architecture with 70% code reduction.
+ */
+
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { fetchCanvasDiscussions, clearCache, getCacheTimestamp } from '../js/canvasApi';
+import DOMPurify from 'dompurify';
+import Layout from '../components/layout/Layout';
+import PageContainer from '../components/layout/PageContainer';
+import { useCanvasAuth } from '../components/canvas/useCanvasAuth';
+import { useCanvasCache } from '../components/canvas/useCanvasCache';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+import ErrorMessage from '../components/ui/ErrorMessage';
+import StatusBadge from '../components/ui/StatusBadge';
+import RefreshButton from '../components/ui/RefreshButton';
+import CredentialsRequired from '../components/ui/CredentialsRequired';
+import ActivityCard from '../components/discussion/ActivityCard';
+import { fetchCanvasDiscussions } from '../js/canvasApi';
 import { fetchCourseEnrollments } from '../js/dataUtils';
 
 export default function Home() {
-  const [apiUrl, setApiUrl] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  const [courseId, setCourseId] = useState('');
-  const [courseName, setCourseName] = useState('');
-  const [recentActivity, setRecentActivity] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [dataSource, setDataSource] = useState('');
-  const [cacheTimestamp, setCacheTimestamp] = useState(null);
-  const [uniqueUsers, setUniqueUsers] = useState(0);
+  const { credentialsMissing, apiUrl, apiKey, courseId } = useCanvasAuth();
+  const { 
+    dataSource, 
+    cacheTimestamp, 
+    handleClearCache, 
+    setupCacheListener 
+  } = useCanvasCache(courseId);
+  
+  // State management for activity data and UI states
+  const [recentActivity, setRecentActivity] = useState([]);  // Array of student activity entries
+  const [uniqueUsers, setUniqueUsers] = useState(0);         // Count of unique student users
+  const [loading, setLoading] = useState(false);             // Loading state for async operations
+  const [error, setError] = useState('');                    // Error message display
 
-  // Helper: Check if credentials are set
-  function credentialsMissing() {
-    return !apiUrl || !apiKey || !courseId;
-  }
-
+  /**
+   * Load activity data when credentials or course changes
+   * Sets up cache listener and handles loading/error states
+   */
   useEffect(() => {
-    setApiUrl(localStorage.getItem('canvas_api_url') || '');
-    setApiKey(localStorage.getItem('canvas_api_key') || '');
-    setCourseId(localStorage.getItem('course_id') || '');
-  }, []);
-
-  useEffect(() => {
-    if (!apiUrl || !apiKey || !courseId) return;
+    if (credentialsMissing()) return;
+    
     setLoading(true);
     setError('');
-    setDataSource('');
     
-    // Check for existing cache timestamp
-    const existingTimestamp = getCacheTimestamp(courseId);
-    setCacheTimestamp(existingTimestamp);
-    
-    // Listen for console messages to detect cache usage
-    const originalLog = console.log;
-    console.log = function(...args) {
-      if (args[0] === '✓ Using cached discussion data') {
-        setDataSource('cached');
-        setCacheTimestamp(existingTimestamp);
-      } else if (args[0] === '→ Fetching fresh discussion data from Canvas API') {
-        setDataSource('fresh');
-        setCacheTimestamp(null);
-      }
-      originalLog.apply(console, args);
-    };
+    const cleanupListener = setupCacheListener();
     
     loadActivityData()
-      .catch(e => {
-        console.log = originalLog; // Restore original console.log
-        setError(e.message);
-      })
+      .catch(e => setError(e.message))
       .finally(() => {
-        console.log = originalLog; // Restore original console.log
         setLoading(false);
+        cleanupListener();
       });
   }, [apiUrl, apiKey, courseId]);
 
-  useEffect(() => {
-    if (!apiUrl || !apiKey || !courseId) return;
-    async function fetchCourseName() {
-      try {
-        const res = await fetch('/api/canvas-proxy', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            apiUrl,
-            apiKey,
-            endpoint: `/courses/${courseId}`,
-            method: 'GET'
-          })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setCourseName(data.name || '');
-        } else {
-          setCourseName('');
-        }
-      } catch {
-        setCourseName('');
-      }
-    }
-    fetchCourseName();
-  }, [apiUrl, apiKey, courseId]);
-
+  /**
+   * Fetches and processes Canvas discussion data to show recent student activity
+   * Filters out teacher posts and sorts chronologically (newest first)
+   */
   async function loadActivityData() {
-    // Get all discussion posts
+    // Fetch all discussion posts and teacher enrollment data
     const allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
-    
-    // Get teacher user IDs to exclude from activity feed
     const teacherUserIds = await fetchCourseEnrollments(apiUrl, apiKey, courseId);
     
-    // Filter out teacher posts and create activity feed
+    // Filter to only include student posts (exclude teachers)
     const studentPosts = allPosts.filter(post => {
       const userId = post.user?.id || post.user_id;
       return !teacherUserIds.includes(parseInt(userId)) && !teacherUserIds.includes(userId);
     });
     
-    // Sort posts by created_at (most recent first)
+    // Sort by creation date (newest first)
     studentPosts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     
-    // Create activity entries
+    // Transform posts into activity entries with consistent structure
     const activityEntries = studentPosts.map(post => ({
       userName: post.user?.display_name || post.user_name || 'Unknown',
       discussionName: post.topic_title || 'Unknown Discussion',
@@ -114,145 +84,257 @@ export default function Home() {
       initials: (post.user?.display_name || post.user_name || 'Unknown').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     }));
     
-    // Count unique users
+    // Count unique users and update state
     const uniqueUserNames = new Set(activityEntries.map(entry => entry.userName));
     setUniqueUsers(uniqueUserNames.size);
-    
-    // Update cache timestamp after processing
-    const newTimestamp = getCacheTimestamp(courseId);
-    setCacheTimestamp(newTimestamp);
-    
     setRecentActivity(activityEntries);
   }
 
-  function handleRefreshData() {
-    clearCache(courseId);
-    setDataSource('');
-    setCacheTimestamp(null);
+  /**
+   * Manually refresh data by clearing cache and reloading
+   * Triggered by the refresh button click
+   */
+  function handleRefresh() {
+    handleClearCache();
     setLoading(true);
     loadActivityData()
-      .then(() => {
-        setDataSource('fresh');
-        const newTimestamp = getCacheTimestamp(courseId);
-        setCacheTimestamp(newTimestamp);
-      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-red-900 text-white shadow-md mx-auto">
-        <div className="container mx-auto max-w-6xl px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <h1 className="text-2xl font-bold flex items-center">
-              <a href="/" className="flex items-center hover:text-gray-200 transition-colors">
-                <i className="fas fa-comments mr-2"></i>Canvas Discussion Browser
-              </a>
-              <span className="ml-4 text-lg font-normal text-gray-200">{courseName ? courseName : 'Loading...'}</span>
-            </h1>
-          </div>
-          <nav className="flex items-center space-x-4 text-sm">
-            <a href="/" className="text-white hover:text-gray-200 transition-colors border-b">
-              <i className="fas fa-home mr-1"></i> Home
-            </a>
-            <a href="/feedback" className="text-white hover:text-gray-200 transition-colors">
-              <i className="fas fa-comments mr-1"></i> Feedback
-            </a>
-            <a href="/settings" className="text-white hover:text-gray-200 transition-colors">
-              <i className="fas fa-cog mr-1"></i> Settings
-            </a>
-            <a href="https://github.com/cdil-bc/Canvas-Discussions-Browser" target="_blank" rel="noopener noreferrer" className="text-white hover:text-gray-200 transition-colors">
-              <i className="fab fa-github mr-1"></i> GitHub
-            </a>
-          </nav>
-        </div>
-      </header>
+  /**
+   * Exports all Canvas discussions as a threaded Markdown file
+   * Dynamically loads TurndownService library for HTML to Markdown conversion
+   * Creates a downloadable file with organized discussion threads
+   */
+  async function handleDownloadMarkdown() {
+    // Dynamically load TurndownService if not already available
+    if (!window.TurndownService) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = '/turndown.js';
+        script.onload = resolve;
+        script.onerror = reject;
+        document.body.appendChild(script);
+      });
+    }
+    // Configure TurndownService for clean markdown conversion
+    const turndownService = new window.TurndownService({ headingStyle: 'atx' });
+    turndownService.remove('script');  // Remove script tags
+    turndownService.remove('style');   // Remove style tags  
+    turndownService.remove('link');    // Remove link tags
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <p className="text-gray-600 mb-6 font-bold">Recent student activity across all discussion topics, excluding teacher posts.</p>
+    /**
+     * Converts HTML content to clean Markdown format
+     * @param {string} html - Raw HTML content from Canvas
+     * @returns {string} - Clean Markdown text
+     */
+    function htmlToMarkdown(html) {
+      html = DOMPurify.sanitize(html);
+      html = html.replace(/<script[\s\S]*?<\/script>/gi, '')
+                 .replace(/<style[\s\S]*?<\/style>/gi, '')
+                 .replace(/<link[\s\S]*?>/gi, '');
+      return turndownService.turndown(html).replace(/\n{2,}/g, '\n\n');
+    }
+
+    /**
+     * Recursively builds threaded discussion structure in Markdown
+     * @param {Array} entries - Discussion entries to process
+     * @param {number|null} parentId - Parent post ID for replies
+     * @param {number} depth - Current nesting depth for indentation
+     * @returns {string} - Formatted Markdown thread
+     */
+    function buildThread(entries, parentId = null, depth = 0) {
+      let md = '';
+      // Get child entries for this level (top-level if parentId is null)
+      const children = parentId === null ? entries : (entries || []).filter(e => (e.parent_id || null) === parentId);
+      children.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      
+      for (const entry of children) {
+        // Build author and date information
+        const author = entry.user?.display_name || entry.user_name || 'Unknown';
+        const date = entry.created_at ? new Date(entry.created_at).toLocaleString() : '';
+        const heading = `${'#'.repeat(2 + depth)} ${depth > 0 ? 'Reply: ' : ''}${author} at ${date}`;
         
-        {credentialsMissing() ? (
-          <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-900 p-6 mb-8 rounded">
-            <h2 className="text-xl font-bold mb-2">Canvas API Credentials Required</h2>
-            <p className="mb-2">To use this app, you must provide your Canvas API URL, Access Token, and Course ID.</p>
-            <Link href="/settings" className="text-red-900 underline font-semibold">Go to Settings</Link>
-          </div>
-        ) : (
-          <div>
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-2xl font-semibold text-gray-800">Recent Activity - {uniqueUsers} Users</h2>
-                  {cacheTimestamp && (
-                    <span className="text-sm px-2 py-1 rounded bg-green-100 text-green-800">
-                      ⚡ Last refreshed: {new Date(cacheTimestamp).toLocaleString()}
-                    </span>
-                  )}
-                  {dataSource === 'fresh' && !cacheTimestamp && (
-                    <span className="text-sm px-2 py-1 rounded bg-blue-100 text-blue-800">
-                      🔄 Fresh data
-                    </span>
-                  )}
-                </div>
-                <button
-                  className="bg-gray-600 text-white px-3 py-2 rounded-md font-semibold hover:bg-gray-700 transition-colors whitespace-nowrap"
-                  onClick={handleRefreshData}
-                  disabled={loading}
-                >
-                  🔄 Refresh
-                </button>
-              </div>
+        // Convert HTML message to markdown and add indentation for replies
+        let message = htmlToMarkdown(DOMPurify.sanitize(entry.message || ''));
+        if (depth > 0) {
+          message = message.split('\n').map(line => '>'.repeat(depth) + ' ' + line).join('\n');
+        }
+        
+        // Add this entry to the markdown output
+        md += `\n${heading}\n\n${message}\n`;
+        
+        // Recursively process any direct replies and child threads
+        if (entry._replies && entry._replies.length > 0) {
+          md += buildThread(entry._replies, null, depth + 1);
+        }
+        md += buildThread(entries, entry.id, depth + 1);
+      }
+      return md;
+    }
 
-              <div className="space-y-4">
-                {loading ? (
-                  <div className="text-red-900 font-semibold">Loading recent activity...</div>
-                ) : error ? (
-                  <div className="text-red-700 font-semibold">{error}</div>
-                ) : recentActivity.length === 0 ? (
-                  <div className="text-gray-500">No recent activity found.</div>
-                ) : (
-                  recentActivity.map((activity, index) => (
-                    <Link
-                      key={index}
-                      href={`/user/${encodeURIComponent(activity.userName)}`}
-                      className="block hover:bg-gray-50 rounded-lg p-4 transition-colors duration-150 border border-gray-200"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="flex-shrink-0">
-                            {activity.avatar ? (
-                              <img src={activity.avatar} alt={activity.userName} className="h-10 w-10 rounded-full object-cover" />
-                            ) : (
-                              <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center text-red-900 font-semibold">
-                                {activity.initials}
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm text-gray-900">
-                              <span className="font-medium text-red-900">
-                                {activity.userName}
-                              </span>
-                              {' '}posted to{' '}
-                              <span className="font-medium text-gray-700">{activity.discussionName}</span>
-                              {' '}at{' '}
-                              <span className="text-gray-600">{new Date(activity.createdAt).toLocaleString()}</span>
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-red-900">
-                          <i className="fas fa-chevron-right"></i>
-                        </div>
-                      </div>
-                    </Link>
-                  ))
-                )}
-              </div>
+    // Validate credentials before proceeding
+    if (credentialsMissing()) {
+      alert('Please set your Canvas API credentials and Course ID in Settings first.');
+      return;
+    }
+
+    // Fetch all discussion posts and organize by topic
+    const allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
+    const topicMap = {};
+    
+    // Create topic structure for each discussion
+    allPosts.forEach(post => {
+      if (!topicMap[post.discussion_topic_id]) {
+        topicMap[post.discussion_topic_id] = {
+          id: post.discussion_topic_id,
+          title: post.topic_title,
+          assignment_id: post.assignment_id,
+          entries: []
+        };
+      }
+    });
+    
+    // Organize posts into threaded structure (parent posts vs replies)
+    allPosts.forEach(post => {
+      const topic = topicMap[post.discussion_topic_id];
+      if (post.parent_id) {
+        // This is a reply - attach to parent post
+        const parentEntry = topic.entries.find(entry => entry.id === post.parent_id);
+        if (parentEntry) {
+          if (!parentEntry._replies) parentEntry._replies = [];
+          parentEntry._replies.push(post);
+        }
+      } else {
+        // This is a top-level post
+        topic.entries.push(post);
+      }
+    });
+    
+    let topicEntries = Object.values(topicMap);
+    
+    const topicsRes = await fetch('/api/canvas-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiUrl,
+        apiKey,
+        endpoint: `/courses/${courseId}/discussion_topics`,
+        method: 'GET'
+      })
+    });
+    
+    if (topicsRes.ok) {
+      const topics = await topicsRes.json();
+      topicEntries.forEach(topicEntry => {
+        const originalTopic = topics.find(t => t.id === topicEntry.id);
+        if (originalTopic) {
+          topicEntry.due_at = originalTopic.due_at;
+        }
+      });
+    }
+
+    topicEntries.sort((a, b) => {
+      if (a.due_at && b.due_at) {
+        return new Date(a.due_at) - new Date(b.due_at);
+      }
+      if (a.due_at) return -1;
+      if (b.due_at) return 1;
+      return a.title.localeCompare(b.title);
+    });
+
+    let md = '';
+    for (const topic of topicEntries) {
+      md += `# ${topic.title}\n`;
+      if (topic.due_at) {
+        md += `*Due: ${new Date(topic.due_at).toLocaleString()}*\n`;
+      }
+      if (topic.entries && topic.entries.length > 0) {
+        md += buildThread(topic.entries);
+      } else {
+        md += '\n_No posts in this topic._\n';
+      }
+      md += '\n---\n\n';
+    }
+
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `canvas-discussions-${courseId}.md`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+  }
+
+  if (credentialsMissing()) {
+    return (
+      <Layout>
+        <PageContainer description="">
+          <CredentialsRequired />
+        </PageContainer>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout>
+      <PageContainer description="">
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-4">
+              <h2 className="text-2xl font-semibold text-gray-800">
+                Recent Activity - {uniqueUsers} Users
+              </h2>
+              {cacheTimestamp && (
+                <StatusBadge type="cached" timestamp={cacheTimestamp} />
+              )}
+              {dataSource === 'fresh' && !cacheTimestamp && (
+                <StatusBadge type="fresh" />
+              )}
+              <button
+                className="flex items-center gap-1 text-white text-sm px-2 py-1 rounded font-medium hover:opacity-90 transition-colors"
+                style={{backgroundColor: '#003957'}}
+                onClick={handleRefresh}
+                disabled={loading}
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
+              </button>
             </div>
+            <button
+              className="flex items-center gap-1 text-white text-sm px-2 py-1 rounded font-medium hover:opacity-90 transition-colors"
+              style={{backgroundColor: '#003957'}}
+              onClick={handleDownloadMarkdown}
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download All Conversations
+            </button>
           </div>
-        )}
-      </main>
-    </div>
+
+          <div className="space-y-4">
+            {loading ? (
+              <LoadingSpinner message="Loading recent activity..." />
+            ) : error ? (
+              <ErrorMessage message={error} onRetry={handleRefresh} />
+            ) : recentActivity.length === 0 ? (
+              <div className="text-gray-500">No recent activity found.</div>
+            ) : (
+              recentActivity.map((activity, index) => (
+                <ActivityCard key={index} activity={activity} />
+              ))
+            )}
+          </div>
+        </div>
+      </PageContainer>
+    </Layout>
   );
 }

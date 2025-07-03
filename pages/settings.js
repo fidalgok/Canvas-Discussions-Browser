@@ -1,148 +1,157 @@
+/**
+ * Settings Page (/settings) - Component-Based Architecture
+ * 
+ * Canvas API credentials management and configuration.
+ * Migrated to use the new component-based architecture with Layout component.
+ */
+
 import { useState, useEffect } from 'react';
+import Layout from '../components/layout/Layout';
+import PageContainer from '../components/layout/PageContainer';
+import { useCanvasAuth } from '../components/canvas/useCanvasAuth';
+import { useCanvasCourse } from '../components/canvas/useCanvasCourse';
 import { clearCache } from '../js/canvasApi';
 
 export default function Settings() {
-  const [apiUrl, setApiUrl] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  const [courseId, setCourseId] = useState('');
-  const [courseName, setCourseName] = useState('');
+  const { apiUrl, apiKey, courseId, updateCredentials } = useCanvasAuth();
+  const { courseName } = useCanvasCourse();
+  
+  const [localApiUrl, setLocalApiUrl] = useState('');
+  const [localApiKey, setLocalApiKey] = useState('');
+  const [localCourseId, setLocalCourseId] = useState('');
   const [saved, setSaved] = useState(false);
   const [cacheCleared, setCacheCleared] = useState(false);
 
   useEffect(() => {
-    setApiUrl(localStorage.getItem('canvas_api_url') || 'https://bostoncollege.instructure.com/api/v1');
-    setApiKey(localStorage.getItem('canvas_api_key') || '');
-    setCourseId(localStorage.getItem('course_id') || '');
-  }, []);
-
-  useEffect(() => {
-    async function fetchCourseName() {
-      if (!apiUrl || !apiKey || !courseId) return;
-      try {
-        const res = await fetch('/api/canvas-proxy', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            apiUrl,
-            apiKey,
-            endpoint: `/courses/${courseId}`,
-            method: 'GET'
-          })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setCourseName(data.name || '');
-        } else {
-          setCourseName('');
-        }
-      } catch {
-        setCourseName('');
-      }
-    }
-    fetchCourseName();
+    setLocalApiUrl(apiUrl || 'https://bostoncollege.instructure.com/api/v1');
+    setLocalApiKey(apiKey);
+    setLocalCourseId(courseId);
   }, [apiUrl, apiKey, courseId]);
 
-  function saveSettings() {
-    localStorage.setItem('canvas_api_url', apiUrl);
-    localStorage.setItem('canvas_api_key', apiKey);
-    localStorage.setItem('course_id', courseId);
+  function handleSave() {
+    updateCredentials(localApiUrl, localApiKey, localCourseId);
     
-    // Clear cache when settings change to force fresh data
-    clearCache(courseId);
+    // Clear cache when credentials are updated
+    if (localCourseId) {
+      clearCache(localCourseId);
+    }
     
     setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+    setTimeout(() => setSaved(false), 3000);
   }
 
   function handleClearCache() {
-    clearCache(courseId);
-    setCacheCleared(true);
-    setTimeout(() => setCacheCleared(false), 2000);
+    if (courseId) {
+      clearCache(courseId);
+      setCacheCleared(true);
+      setTimeout(() => setCacheCleared(false), 3000);
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-red-900 text-white shadow-md">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <h1 className="text-2xl font-bold flex items-center">
-              <a href="/" className="flex items-center hover:text-gray-200 transition-colors">
-                <i className="fas fa-comments mr-2"></i>Canvas Discussion Browser
-              </a>
-              <span className="ml-4 text-lg font-normal text-gray-200">{courseName ? courseName : 'Loading...'}</span>
-            </h1>
-          </div>
-          <nav className="flex items-center space-x-4 text-sm">
-            <a href="/" className="text-white hover:text-gray-200 transition-colors">
-              <i className="fas fa-home mr-1"></i> Home
-            </a>
-            <a href="/verify" className="text-white hover:text-gray-200 transition-colors">
-              <i className="fas fa-check-double mr-1"></i> Verify
-            </a>
-            <a href="/analysis" className="text-white hover:text-gray-200 transition-colors">
-              <i className="fas fa-chart-bar mr-1"></i> Analysis
-            </a>
-            <a href="/settings" className="text-white hover:text-gray-200 transition-colors border-b">
-              <i className="fas fa-cog mr-1"></i> Settings
-            </a>
-            <a href="https://github.com/cdil-bc/Canvas-Discussions-Browser" target="_blank" rel="noopener noreferrer" className="text-white hover:text-gray-200 transition-colors">
-              <i className="fab fa-github mr-1"></i> GitHub
-            </a>
-          </nav>
-          {saved && <div style={{ color: '#166534', fontWeight: 600 }}>Saved!</div>}
-        </div>
-      </header>
-      <main className="max-w-2xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-3xl font-bold mb-6">Settings</h2>
-          <div className="flex flex-col gap-4">
-          <label htmlFor="course_id" className="block text-gray-700 font-medium mb-0 mt-4">Course ID</label>
-            <input
-              id="course_id"
-              className="border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-900 w-full"
-              placeholder="Course ID"
-              value={courseId}
-              onChange={e => setCourseId(e.target.value)}
-            />
-            <label htmlFor="canvas_api_url" className="block text-gray-700 font-medium mb-0 mt-2">Canvas API URL</label>
-            <input
-              id="canvas_api_url"
-              className="border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-900 w-full"
-              placeholder="Canvas API URL (e.g. https://school.instructure.com/api/v1)"
-              value={apiUrl}
-              onChange={e => setApiUrl(e.target.value)}
-            />
-            <label htmlFor="canvas_api_key" className="block text-gray-700 font-medium mb-0 mt-2">Canvas API Access Token</label>
-      
-            <input
-              id="canvas_api_key"
-              className="border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-900 w-full"
-              placeholder="Canvas API Access Token"
-              value={apiKey}
-              type="password"
-              onChange={e => setApiKey(e.target.value)}
-            />
-            <p><em>How to get an API Access Token: <a class="text-red-900 underline"  href="https://community.canvaslms.com/t5/Canvas-Basics-Guide/How-do-I-manage-API-access-tokens-in-my-user-account/ta-p/615312">Canvas API Documentation</a></em></p>
+    <Layout>
+      <PageContainer>
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-6">Canvas API Settings</h2>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Canvas API URL
+              </label>
+              <input
+                type="text"
+                value={localApiUrl}
+                onChange={(e) => setLocalApiUrl(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent"
+                style={{'--tw-ring-color': '#003957'}}
+                placeholder="https://yourschool.instructure.com/api/v1"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Your Canvas instance API URL (usually ends with /api/v1)
+              </p>
+            </div>
 
-            <div className="flex gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Canvas API Access Token
+              </label>
+              <input
+                type="password"
+                value={localApiKey}
+                onChange={(e) => setLocalApiKey(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent"
+                style={{'--tw-ring-color': '#003957'}}
+                placeholder="Your Canvas API token"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Generate this in Canvas under Account → Settings → Approved Integrations
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Course ID
+              </label>
+              <input
+                type="text"
+                value={localCourseId}
+                onChange={(e) => setLocalCourseId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent"
+                style={{'--tw-ring-color': '#003957'}}
+                placeholder="12345"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Found in your Canvas course URL
+              </p>
+            </div>
+
+            {courseName && (
+              <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                <p className="text-sm text-green-800">
+                  <strong>Connected to:</strong> {courseName}
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-center space-x-4 pt-4">
               <button
-                onClick={saveSettings}
-                className="bg-red-900 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-800 transition-colors"
+                onClick={handleSave}
+                className="text-white px-6 py-2 rounded-md font-semibold hover:opacity-90 transition-colors"
+                style={{backgroundColor: '#003957'}}
               >
                 Save Settings
               </button>
+              
               <button
                 onClick={handleClearCache}
-                className="bg-gray-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-gray-700 transition-colors"
+                className="bg-gray-600 text-white px-6 py-2 rounded-md font-semibold hover:bg-gray-700 transition-colors"
+                disabled={!courseId}
               >
-                Clear Cache & Refresh Data
+                Clear Cache
               </button>
+
+              {saved && (
+                <span className="text-green-600 font-medium">Settings saved!</span>
+              )}
+              
+              {cacheCleared && (
+                <span className="text-blue-600 font-medium">Cache cleared!</span>
+              )}
             </div>
-            {saved && <div className="text-green-700 font-semibold">Saved!</div>}
-            {cacheCleared && <div className="text-blue-700 font-semibold">Cache cleared! Fresh data will be loaded.</div>}
           </div>
         </div>
-      </main>
-    </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-blue-900 mb-3">Setup Instructions</h3>
+          <div className="text-sm text-blue-800 space-y-2">
+            <p><strong>1. Get your Canvas API URL:</strong> Usually https://yourschool.instructure.com/api/v1</p>
+            <p><strong>2. Generate an API token:</strong> Go to Canvas → Account → Settings → Approved Integrations → New Access Token</p>
+            <p><strong>3. Find your Course ID:</strong> Look at your course URL - it's the number after /courses/</p>
+            <p><strong>4. Save settings:</strong> Click "Save Settings" to store your credentials locally</p>
+          </div>
+        </div>
+      </PageContainer>
+    </Layout>
   );
 }
