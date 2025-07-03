@@ -10,9 +10,9 @@ import Navigation from './Navigation';
 
 export default function Layout({ children, className = '' }) {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-base-200">
       {/* Full-width header with centered content */}
-      <header className="text-white shadow-md w-full" style={{backgroundColor: '#003957'}}>
+      <header className="bg-primary text-primary-content shadow-lg w-full">
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
           <Header />
           <Navigation />

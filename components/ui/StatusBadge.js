@@ -11,14 +11,12 @@ export default function StatusBadge({ type, timestamp = null, className = '' }) 
       case 'cached':
         return {
           text: `⚡ Last refreshed: ${timestamp ? new Date(timestamp).toLocaleString() : 'Unknown'}`,
-          bgColor: 'bg-green-100',
-          textColor: 'text-green-800'
+          badgeClass: 'badge-success'
         };
       case 'fresh':
         return {
           text: '🔄 Fresh data',
-          bgColor: 'bg-blue-100',
-          textColor: 'text-blue-800'
+          badgeClass: 'badge-info'
         };
       default:
         return null;
@@ -29,7 +27,7 @@ export default function StatusBadge({ type, timestamp = null, className = '' }) 
   if (!badge) return null;
 
   return (
-    <span className={`text-sm px-2 py-1 rounded ${badge.bgColor} ${badge.textColor} ${className}`}>
+    <span className={`badge ${badge.badgeClass} ${className}`}>
       {badge.text}
     </span>
   );

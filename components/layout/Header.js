@@ -14,13 +14,13 @@ export default function Header() {
     <div className="flex flex-col">
       {/* Main application title with icon and homepage link */}
       <h1 className="text-2xl font-bold">
-        <a href="/" className="flex items-center hover:text-gray-200 transition-colors">
+        <a href="/" className="flex items-center hover:opacity-80 transition-opacity">
           <i className="fas fa-comments mr-2"></i>Canvas Discussion Browser
         </a>
       </h1>
       {/* Course name display - stacked below main title */}
       {courseName && (
-        <p className="text-sm text-gray-300 mt-1">
+        <p className="text-sm opacity-80 mt-1">
           {courseName}
         </p>
       )}

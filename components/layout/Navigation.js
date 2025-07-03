@@ -27,8 +27,8 @@ export default function Navigation() {
     <nav className="flex items-center space-x-4 text-sm">
       {navigationItems.map((item) => {
         const isActive = currentPath === item.href;
-        const linkClasses = `text-white hover:text-gray-200 transition-colors ${
-          isActive ? 'border-b-4 border-white' : ''
+        const linkClasses = `text-primary-content hover:opacity-80 transition-opacity ${
+          isActive ? 'border-b-4 border-primary-content' : ''
         }`;
 
         if (item.external) {

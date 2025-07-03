@@ -284,54 +284,54 @@ export default function Home() {
   return (
     <Layout>
       <PageContainer description="">
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-4">
-              <h2 className="text-2xl font-semibold text-gray-800">
-                Recent Activity - {uniqueUsers} Users
-              </h2>
-              {cacheTimestamp && (
-                <StatusBadge type="cached" timestamp={cacheTimestamp} />
-              )}
-              {dataSource === 'fresh' && !cacheTimestamp && (
-                <StatusBadge type="fresh" />
-              )}
+        <div className="card bg-base-100 shadow-md">
+          <div className="card-body">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-4">
+                <h2 className="card-title text-2xl text-base-content">
+                  Recent Activity - {uniqueUsers} Users
+                </h2>
+                {cacheTimestamp && (
+                  <StatusBadge type="cached" timestamp={cacheTimestamp} />
+                )}
+                {dataSource === 'fresh' && !cacheTimestamp && (
+                  <StatusBadge type="fresh" />
+                )}
+                <button
+                  className="btn btn-sm btn-primary"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </button>
+              </div>
               <button
-                className="flex items-center gap-1 text-white text-sm px-2 py-1 rounded font-medium hover:opacity-90 transition-colors"
-                style={{backgroundColor: '#003957'}}
-                onClick={handleRefresh}
-                disabled={loading}
+                className="btn btn-sm btn-primary"
+                onClick={handleDownloadMarkdown}
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                Refresh
+                Download All Conversations
               </button>
             </div>
-            <button
-              className="flex items-center gap-1 text-white text-sm px-2 py-1 rounded font-medium hover:opacity-90 transition-colors"
-              style={{backgroundColor: '#003957'}}
-              onClick={handleDownloadMarkdown}
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Download All Conversations
-            </button>
-          </div>
 
-          <div className="space-y-4">
-            {loading ? (
-              <LoadingSpinner message="Loading recent activity..." />
-            ) : error ? (
-              <ErrorMessage message={error} onRetry={handleRefresh} />
-            ) : recentActivity.length === 0 ? (
-              <div className="text-gray-500">No recent activity found.</div>
-            ) : (
-              recentActivity.map((activity, index) => (
-                <ActivityCard key={index} activity={activity} />
-              ))
-            )}
+            <div className="space-y-4">
+              {loading ? (
+                <LoadingSpinner message="Loading recent activity..." />
+              ) : error ? (
+                <ErrorMessage message={error} onRetry={handleRefresh} />
+              ) : recentActivity.length === 0 ? (
+                <div className="text-base-content opacity-70">No recent activity found.</div>
+              ) : (
+                recentActivity.map((activity, index) => (
+                  <ActivityCard key={index} activity={activity} />
+                ))
+              )}
+            </div>
           </div>
         </div>
       </PageContainer>
