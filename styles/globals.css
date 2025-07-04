@@ -19,7 +19,7 @@
   
   /* Semantic colors */
   --color-neutral: oklch(14% 0.005 285.823);
-  --color-neutral-content: oklch(25% 0.004 286.32);
+  --color-neutral-content: oklch(92% 0.004 286.32);
   --color-info: #D1DCE0;
   --color-info-content: oklch(29% 0.066 243.157);
   --color-success: #D8DCCA;
