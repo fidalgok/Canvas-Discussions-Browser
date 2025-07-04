@@ -252,6 +252,77 @@ export default async function handler(req, res) {
 }
 ```
 
+## Security Considerations
+
+### Current Implementation (Proof of Concept)
+
+**Credential Storage**: 
+- ✅ **sessionStorage** (as of 2025-07-04) - Credentials cleared when browser tab closes
+- ✅ **Tab isolation** - Credentials don't persist across browser tabs
+- ⚠️ **Still vulnerable to XSS** - Any script on domain can access credentials
+- ⚠️ **User manages own tokens** - Each user enters their Canvas API token
+
+**Security Benefits**:
+- Credentials automatically cleared on browser close
+- No persistent storage of sensitive data
+- Reduced attack surface compared to localStorage
+
+### Migration Roadmap
+
+#### Phase 1: sessionStorage (Current - PoC Stage)
+```javascript
+// Current: Client-side credential management
+sessionStorage.setItem('canvas_api_key', apiKey);
+```
+
+#### Phase 2: Server-Side Sessions (Next Phase)
+```javascript
+// Future: Server manages credentials securely
+POST /api/auth/canvas-login
+{
+  "apiUrl": "https://bostoncollege.instructure.com/api/v1",
+  "apiKey": "canvas_token_here",
+  "courseId": "12345"
+}
+// Server stores encrypted in session, returns session cookie
+// All Canvas API calls use server-stored credentials
+```
+
+#### Phase 3: Full Authentication System (Long-term)
+- User accounts with proper authentication
+- Database storage for user-specific configurations
+- Canvas OAuth integration
+- Admin-managed Canvas tokens
+
+### Implementation Notes for Future Phases
+
+**Phase 2 Requirements**:
+- Add session middleware (express-session, Redis)
+- Encrypt credentials before session storage
+- Update CanvasProvider to authenticate via session
+- Maintain course-switching capability
+
+**Phase 3 Requirements**:
+- User registration/login system
+- Database schema for user credentials
+- Canvas OAuth app registration
+- Admin interface for Canvas instance management
+
+### Security Best Practices
+
+1. **Never log API tokens** in console or server logs
+2. **Validate all inputs** before proxy requests
+3. **Rate limit API calls** to prevent abuse
+4. **Use HTTPS** in production environments
+5. **Regular token rotation** (remind users to refresh tokens)
+
+### Current Limitations
+
+- Multi-user deployments require manual token management
+- No centralized credential management
+- Limited audit trail for API usage
+- Relies on user understanding of Canvas token security
+
 ## Common Gotchas
 
 ### 1. Display Names vs Usernames

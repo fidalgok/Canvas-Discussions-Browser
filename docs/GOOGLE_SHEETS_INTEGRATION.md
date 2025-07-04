@@ -146,12 +146,37 @@ const cacheKey = `sheets_cache_${sheetId}`;
 
 ## Security Considerations
 
-### API Key Security
+### API Key Security (Updated 2025-07-04)
 
 - **Read-Only Access**: API key only needs Sheets read permission
-- **Client-Side Storage**: API key stored in localStorage (same as Canvas credentials)
+- **Client-Side Storage**: API key stored in **sessionStorage** (improved security)
+- **Session Isolation**: Credentials cleared when browser tab closes
 - **No Server Storage**: Keys never transmitted to application server
 - **Public Sheet Access**: No OAuth required, simplified setup
+
+### Security Migration Notes
+
+**Previous Implementation (Pre-2025-07-04)**:
+- ❌ **localStorage** - Credentials persisted indefinitely
+- ❌ **Cross-tab exposure** - Credentials visible across browser tabs
+
+**Current Implementation (2025-07-04+)**:
+- ✅ **sessionStorage** - Credentials cleared on tab close
+- ✅ **Tab isolation** - Credentials isolated per browser tab
+- ✅ **Reduced attack surface** - Shorter credential lifetime
+- ⚠️ **Still vulnerable to XSS** - Same-domain script access remains
+
+### Future Security Roadmap
+
+**Phase 2: Server-Side Session Management**
+- Move API keys to encrypted server sessions
+- Client holds only session cookie
+- Centralized credential management for multi-user deployments
+
+**Phase 3: OAuth Integration**
+- Replace API keys with OAuth flow
+- User-specific sheet access permissions
+- No client-side credential storage
 
 ### Data Privacy
 
