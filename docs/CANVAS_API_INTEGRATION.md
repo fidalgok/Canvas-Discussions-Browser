@@ -73,7 +73,9 @@ GET /api/v1/courses/{course_id}/enrollments?per_page=100&page=1
 ### Name Normalization Rules:
 ```javascript
 function normalizeNameForMatching(name) {
-  return name
+  if (!name || typeof name !== 'string') return '';
+  
+  let normalized = name
     .toLowerCase()
     .trim()
     .replace(/\s*\([^)]*\)\s*/g, ' ')      // Remove parentheses content
@@ -83,9 +85,15 @@ function normalizeNameForMatching(name) {
     .replace(/\bsteven?\b/g, 'steve')
     .replace(/\bnathaniel\b/g, 'nate')
     .replace(/\braymond\b/g, 'ray')
+    .replace(/\bkimberlyn\b/g, 'kim')     // Institution-specific mappings
+    .replace(/\bkimberly\b/g, 'kim')
     .replace(/[^\w\s]/g, '')              // Remove punctuation
     .replace(/\s+/g, ' ')                 // Normalize whitespace
     .trim();
+  
+  // Handle "Last, First" format by converting to sorted words
+  const words = normalized.split(' ').filter(word => word.length > 0);
+  return words.sort().join(' ');
 }
 ```
 
@@ -146,10 +154,59 @@ while (hasMore) {
 2. Match by email address (most reliable)
 3. Fall back to fuzzy name matching
 
-#### When Only Names Available:
+#### When Only Names Available (Google Sheets Integration):
 1. Extract all unique users from Canvas discussions
 2. Normalize both Canvas and external names
 3. Use fuzzy matching with exact match priority
+4. Implement subset matching for partial name variations
+
+### Google Sheets Integration Pattern:
+```javascript
+// Multi-tier matching strategy
+function matchUsersWithSheetsData(canvasUsers, sheetsData) {
+  canvasUsers.forEach(canvasUser => {
+    const canvasName = canvasUser.display_name || canvasUser.user_name;
+    
+    // 1. Try exact match first
+    let sheetMatch = sheetsData.find(sheetUser => 
+      sheetUser.displayName === canvasName
+    );
+    
+    // 2. Try fuzzy match if exact fails
+    if (!sheetMatch) {
+      const normalizedCanvas = normalizeNameForMatching(canvasName);
+      
+      sheetMatch = sheetsData.find(sheetUser => {
+        const normalizedSheet = normalizeNameForMatching(sheetUser.displayName);
+        
+        // Exact normalized match
+        if (normalizedCanvas === normalizedSheet) return true;
+        
+        // Subset matching for middle names
+        const canvasWords = normalizedCanvas.split(' ');
+        const sheetWords = normalizedSheet.split(' ');
+        const canvasSet = new Set(canvasWords);
+        const sheetSet = new Set(sheetWords);
+        
+        return canvasWords.every(word => sheetSet.has(word)) ||
+               sheetWords.every(word => canvasSet.has(word));
+      });
+    }
+    
+    // 3. Create enhanced user object if match found
+    if (sheetMatch) {
+      return {
+        ...canvasUser,
+        enhancedData: {
+          source: 'google_sheets',
+          ...sheetMatch,
+          matchType: sheetMatch.displayName === canvasName ? 'exact' : 'fuzzy'
+        }
+      };
+    }
+  });
+}
+```
 
 ### Example Implementation:
 ```javascript
@@ -260,5 +317,22 @@ console.log(`Final engaged participants: ${engagedUsers.length}`);
 ✅ Test with courses containing TAs and large enrollments  
 ✅ Use proxy API for CORS in browser apps  
 ✅ Never assume email availability in discussion endpoints  
+✅ Implement multi-tier matching for external data integration  
+✅ Use separate cache namespaces for different data sources  
+
+## External Data Integration Notes
+
+### Google Sheets Integration (Implemented)
+- **Schema**: 8-column format with display name matching
+- **API Pattern**: Public sheet access via Google Sheets API v4
+- **Caching**: Separate cache namespace (`sheets_cache_`) to avoid conflicts
+- **Matching**: Three-tier strategy (exact → fuzzy → subset)
+- **Performance**: Cached indefinitely until manual refresh
+
+### Future Integration Patterns
+- **Database Systems**: SQL/NoSQL external data sources
+- **LDAP/AD**: Institutional directory services  
+- **Canvas Gradebook**: Bi-directional sync with Canvas data
+- **External APIs**: Other LMS or student information systems
 
 This document should be updated as new Canvas API patterns are discovered.
