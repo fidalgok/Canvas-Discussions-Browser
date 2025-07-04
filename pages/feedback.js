@@ -18,6 +18,7 @@ import CredentialsRequired from '../components/ui/CredentialsRequired';
 import TopicCard from '../components/discussion/TopicCard';
 import { fetchCanvasDiscussions } from '../js/canvasApi';
 import { filterGradedReflections, fetchCourseEnrollments } from '../js/dataUtils';
+import DOMPurify from 'dompurify';
 
 export default function FeedbackPage() {
   const { credentialsMissing, apiUrl, apiKey, courseId } = useCanvasAuth();
@@ -174,6 +175,175 @@ export default function FeedbackPage() {
       .finally(() => setLoading(false));
   }
 
+  /**
+   * Exports all Canvas discussions as a threaded Markdown file
+   * Dynamically loads TurndownService library for HTML to Markdown conversion
+   * Creates a downloadable file with organized discussion threads
+   */
+  async function handleDownloadMarkdown() {
+    // Dynamically load TurndownService if not already available
+    if (!window.TurndownService) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = '/turndown.js';
+        script.onload = resolve;
+        script.onerror = reject;
+        document.body.appendChild(script);
+      });
+    }
+    // Configure TurndownService for clean markdown conversion
+    const turndownService = new window.TurndownService({ headingStyle: 'atx' });
+    turndownService.remove('script');  // Remove script tags
+    turndownService.remove('style');   // Remove style tags  
+    turndownService.remove('link');    // Remove link tags
+
+    /**
+     * Converts HTML content to clean Markdown format
+     * @param {string} html - Raw HTML content from Canvas
+     * @returns {string} - Clean Markdown text
+     */
+    function htmlToMarkdown(html) {
+      html = DOMPurify.sanitize(html);
+      html = html.replace(/<script[\s\S]*?<\/script>/gi, '')
+                 .replace(/<style[\s\S]*?<\/style>/gi, '')
+                 .replace(/<link[\s\S]*?>/gi, '');
+      return turndownService.turndown(html).replace(/\n{2,}/g, '\n\n');
+    }
+
+    /**
+     * Recursively builds threaded discussion structure in Markdown
+     * @param {Array} entries - Discussion entries to process
+     * @param {number|null} parentId - Parent post ID for replies
+     * @param {number} depth - Current nesting depth for indentation
+     * @returns {string} - Formatted Markdown thread
+     */
+    function buildThread(entries, parentId = null, depth = 0) {
+      let md = '';
+      // Get child entries for this level (top-level if parentId is null)
+      const children = parentId === null ? entries : (entries || []).filter(e => (e.parent_id || null) === parentId);
+      children.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      
+      for (const entry of children) {
+        // Build author and date information
+        const author = entry.user?.display_name || entry.user_name || 'Unknown';
+        const date = entry.created_at ? new Date(entry.created_at).toLocaleString() : '';
+        const heading = `${'#'.repeat(2 + depth)} ${depth > 0 ? 'Reply: ' : ''}${author} at ${date}`;
+        
+        // Convert HTML message to markdown and add indentation for replies
+        let message = htmlToMarkdown(DOMPurify.sanitize(entry.message || ''));
+        if (depth > 0) {
+          message = message.split('\n').map(line => '>'.repeat(depth) + ' ' + line).join('\n');
+        }
+        
+        // Add this entry to the markdown output
+        md += `\n${heading}\n\n${message}\n`;
+        
+        // Recursively process any direct replies and child threads
+        if (entry._replies && entry._replies.length > 0) {
+          md += buildThread(entry._replies, null, depth + 1);
+        }
+        md += buildThread(entries, entry.id, depth + 1);
+      }
+      return md;
+    }
+
+    // Validate credentials before proceeding
+    if (credentialsMissing()) {
+      alert('Please set your Canvas API credentials and Course ID in Settings first.');
+      return;
+    }
+
+    // Fetch all discussion posts and organize by topic
+    const allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
+    const topicMap = {};
+    
+    // Create topic structure for each discussion
+    allPosts.forEach(post => {
+      if (!topicMap[post.discussion_topic_id]) {
+        topicMap[post.discussion_topic_id] = {
+          id: post.discussion_topic_id,
+          title: post.topic_title,
+          assignment_id: post.assignment_id,
+          entries: []
+        };
+      }
+    });
+    
+    // Organize posts into threaded structure (parent posts vs replies)
+    allPosts.forEach(post => {
+      const topic = topicMap[post.discussion_topic_id];
+      if (post.parent_id) {
+        // This is a reply - attach to parent post
+        const parentEntry = topic.entries.find(entry => entry.id === post.parent_id);
+        if (parentEntry) {
+          if (!parentEntry._replies) parentEntry._replies = [];
+          parentEntry._replies.push(post);
+        }
+      } else {
+        // This is a top-level post
+        topic.entries.push(post);
+      }
+    });
+    
+    let topicEntries = Object.values(topicMap);
+    
+    const topicsRes = await fetch('/api/canvas-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiUrl,
+        apiKey,
+        endpoint: `/courses/${courseId}/discussion_topics`,
+        method: 'GET'
+      })
+    });
+    
+    if (topicsRes.ok) {
+      const topics = await topicsRes.json();
+      topicEntries.forEach(topicEntry => {
+        const originalTopic = topics.find(t => t.id === topicEntry.id);
+        if (originalTopic) {
+          topicEntry.due_at = originalTopic.due_at;
+        }
+      });
+    }
+
+    topicEntries.sort((a, b) => {
+      if (a.due_at && b.due_at) {
+        return new Date(a.due_at) - new Date(b.due_at);
+      }
+      if (a.due_at) return -1;
+      if (b.due_at) return 1;
+      return a.title.localeCompare(b.title);
+    });
+
+    let md = '';
+    for (const topic of topicEntries) {
+      md += `# ${topic.title}\n`;
+      if (topic.due_at) {
+        md += `*Due: ${new Date(topic.due_at).toLocaleString()}*\n`;
+      }
+      if (topic.entries && topic.entries.length > 0) {
+        md += buildThread(topic.entries);
+      } else {
+        md += '\n_No posts in this topic._\n';
+      }
+      md += '\n---\n\n';
+    }
+
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `canvas-discussions-${courseId}.md`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+  }
+
   if (credentialsMissing()) {
     return (
       <Layout>
@@ -215,6 +385,21 @@ export default function FeedbackPage() {
                 Refresh
               </button>
             </div>
+            <button
+              className="flex items-center gap-1 text-sm px-2 py-1 font-medium hover:opacity-90 transition-colors"
+              style={{
+                backgroundColor: 'var(--color-secondary)',
+                color: 'var(--color-secondary-content)',
+                borderRadius: 'var(--radius-field)'
+              }}
+              onClick={handleDownloadMarkdown}
+            >
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                <path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 013.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 013.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 01-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875zM12.75 12a.75.75 0 00-1.5 0v2.25H9a.75.75 0 000 1.5h2.25V18a.75.75 0 001.5 0v-2.25H15a.75.75 0 000-1.5h-2.25V12z" clipRule="evenodd" />
+                <path d="M14.25 5.25a5.23 5.23 0 00-1.279-3.434 9.768 9.768 0 016.963 6.963A5.23 5.23 0 0016.5 7.5h-1.875a.375.375 0 01-.375-.375V5.25z" />
+              </svg>
+              Download All Conversations
+            </button>
           </div>
 
           <div className="space-y-6">

@@ -34,6 +34,8 @@ export default function Home() {
   const [uniqueUsers, setUniqueUsers] = useState(0);         // Count of unique student users
   const [loading, setLoading] = useState(false);             // Loading state for async operations
   const [error, setError] = useState('');                    // Error message display
+  const [enhancedUsers, setEnhancedUsers] = useState([]);    // Enhanced user data from Google Sheets
+  const [sheetsStatus, setSheetsStatus] = useState(null);    // Google Sheets integration status
 
   /**
    * Load activity data when credentials or course changes
@@ -53,7 +55,67 @@ export default function Home() {
         setLoading(false);
         cleanupListener();
       });
-  }, [apiUrl, apiKey, courseId]);
+    
+    // Load Google Sheets data after Canvas data is loaded
+    // This will be called from loadActivityData after recentActivity is populated
+  }, [apiUrl, apiKey, courseId]);  
+  
+  /**
+   * Load enhanced user data from Google Sheets
+   * Takes activity data as parameter to avoid dependency issues
+   */
+  async function loadEnhancedUserDataWithActivity(activityData) {
+    const googleSheetsId = localStorage.getItem('google_sheets_id');
+    const googleApiKey = localStorage.getItem('google_api_key');
+    
+    if (!googleSheetsId || !googleApiKey) {
+      setSheetsStatus({ enabled: false, reason: 'not_configured' });
+      return;
+    }
+    
+    try {
+      // Load Google Sheets API if not already loaded
+      if (typeof window !== 'undefined' && !window.googleSheetsApi) {
+        const script = document.createElement('script');
+        script.src = '/js/googleSheetsApi.js';
+        document.head.appendChild(script);
+        await new Promise(resolve => script.onload = resolve);
+      }
+      
+      // Create mock canvas users from activity data
+      const mockCanvasUsers = activityData.map(activity => ({
+        display_name: activity.userName,
+        user_name: activity.userName
+      }));
+      
+      if (mockCanvasUsers.length === 0) {
+        setSheetsStatus({ enabled: true, matched: 0, total: 0 });
+        return;
+      }
+      
+      const result = await window.googleSheetsApi.fetchAndMatchSheetsData({
+        sheetId: googleSheetsId,
+        apiKey: googleApiKey,
+        canvasUsers: mockCanvasUsers,
+        useCache: true
+      });
+      
+      if (result.success) {
+        setEnhancedUsers(result.matchedUsers);
+        setSheetsStatus({ 
+          enabled: true, 
+          matched: result.stats.matched,
+          total: result.stats.totalCanvas,
+          matchRate: result.stats.matchRate
+        });
+      } else {
+        setSheetsStatus({ enabled: false, reason: 'fetch_failed', error: result.error });
+      }
+    } catch (error) {
+      console.warn('Google Sheets integration failed:', error);
+      setSheetsStatus({ enabled: false, reason: 'error', error: error.message });
+    }
+  }
 
   /**
    * Fetches and processes Canvas discussion data to show recent student activity
@@ -88,6 +150,9 @@ export default function Home() {
     const uniqueUserNames = new Set(activityEntries.map(entry => entry.userName));
     setUniqueUsers(uniqueUserNames.size);
     setRecentActivity(activityEntries);
+    
+    // Load enhanced user data now that we have activity data
+    loadEnhancedUserDataWithActivity(activityEntries);
   }
 
   /**
@@ -97,6 +162,12 @@ export default function Home() {
   function handleRefresh() {
     handleClearCache();
     setLoading(true);
+    
+    // Clear Google Sheets cache as well
+    if (typeof window !== 'undefined' && window.googleSheetsApi) {
+      window.googleSheetsApi.clearSheetsCache();
+    }
+    
     loadActivityData()
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
@@ -312,21 +383,6 @@ export default function Home() {
                 Refresh
               </button>
             </div>
-            <button
-              className="flex items-center gap-1 text-sm px-2 py-1 font-medium hover:opacity-90 transition-colors"
-              style={{
-                backgroundColor: 'var(--color-secondary)',
-                color: 'var(--color-secondary-content)',
-                borderRadius: 'var(--radius-field)'
-              }}
-              onClick={handleDownloadMarkdown}
-            >
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                <path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 013.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 013.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 01-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875zM12.75 12a.75.75 0 00-1.5 0v2.25H9a.75.75 0 000 1.5h2.25V18a.75.75 0 001.5 0v-2.25H15a.75.75 0 000-1.5h-2.25V12z" clipRule="evenodd" />
-                <path d="M14.25 5.25a5.23 5.23 0 00-1.279-3.434 9.768 9.768 0 016.963 6.963A5.23 5.23 0 0016.5 7.5h-1.875a.375.375 0 01-.375-.375V5.25z" />
-              </svg>
-              Download All Conversations
-            </button>
           </div>
 
           <div className="space-y-4">
@@ -337,9 +393,20 @@ export default function Home() {
             ) : recentActivity.length === 0 ? (
               <div className="text-gray-500">No recent activity found.</div>
             ) : (
-              recentActivity.map((activity, index) => (
-                <ActivityCard key={index} activity={activity} />
-              ))
+              recentActivity.map((activity, index) => {
+                // Find enhanced data for this user
+                const enhancedData = enhancedUsers.find(user => 
+                  user.display_name === activity.userName || user.user_name === activity.userName
+                );
+                
+                return (
+                  <ActivityCard 
+                    key={index} 
+                    activity={activity} 
+                    enhancedData={enhancedData?.enhancedData || null}
+                  />
+                );
+              })
             )}
           </div>
         </div>

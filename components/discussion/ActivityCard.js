@@ -7,7 +7,7 @@
 
 import Link from 'next/link';
 
-export default function ActivityCard({ activity, className = '' }) {
+export default function ActivityCard({ activity, enhancedData = null, className = '' }) {
   return (
     <Link
       href={`/user/${encodeURIComponent(activity.userName)}`}
@@ -43,11 +43,34 @@ export default function ActivityCard({ activity, className = '' }) {
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm text-black">
+            <div className="flex items-center gap-2 mb-1">
               <span className="font-medium" style={{color: 'var(--color-primary)'}}>
                 {activity.userName}
               </span>
-              {' '}posted to{' '}
+              {enhancedData && (
+                <div className="flex items-center gap-1">
+                  <span className="text-xs px-1.5 py-0.5 rounded" style={{
+                    backgroundColor: 'var(--color-success)',
+                    color: 'var(--color-success-content)'
+                  }}>
+                    📊
+                  </span>
+                  {enhancedData.institution && (
+                    <span className="text-xs text-gray-600">{enhancedData.institution}</span>
+                  )}
+                  {enhancedData.assistantType && (
+                    <span className="text-xs px-1.5 py-0.5 rounded" style={{
+                      backgroundColor: 'var(--color-secondary)',
+                      color: 'var(--color-secondary-content)'
+                    }}>
+                      {enhancedData.assistantType}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+            <p className="text-sm text-black">
+              Posted to{' '}
               <span className="font-medium text-black">
                 {activity.discussionName}
               </span>
