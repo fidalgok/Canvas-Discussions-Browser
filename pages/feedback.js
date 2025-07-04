@@ -190,7 +190,7 @@ export default function FeedbackPage() {
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-4">
-              <h2 className="text-2xl font-semibold text-gray-800">
+              <h2 className="text-2xl font-semibold" style={{color: 'var(--color-primary)'}}>
                 Discussion Topics ({topics.length})
               </h2>
               {cacheTimestamp && (
@@ -200,13 +200,17 @@ export default function FeedbackPage() {
                 <StatusBadge type="fresh" />
               )}
               <button
-                className="flex items-center gap-1 text-white text-sm px-2 py-1 rounded font-medium hover:opacity-90 transition-colors"
-                style={{backgroundColor: '#003957'}}
+                className="flex items-center gap-1 text-sm px-2 py-1 font-medium hover:opacity-90 transition-colors"
+                style={{
+                  backgroundColor: 'var(--color-secondary)',
+                  color: 'var(--color-secondary-content)',
+                  borderRadius: 'var(--radius-field)'
+                }}
                 onClick={handleRefresh}
                 disabled={loading}
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                 </svg>
                 Refresh
               </button>

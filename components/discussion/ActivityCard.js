@@ -11,7 +11,14 @@ export default function ActivityCard({ activity, className = '' }) {
   return (
     <Link
       href={`/user/${encodeURIComponent(activity.userName)}`}
-      className={`block hover:bg-gray-50 rounded-lg p-4 transition-colors duration-150 border border-gray-200 ${className}`}
+      className={`block rounded-lg p-4 transition-colors duration-150 border ${className}`}
+      style={{
+        backgroundColor: 'var(--color-base-100)',
+        borderColor: 'var(--color-base-300)',
+        borderRadius: 'var(--radius-box)'
+      }}
+      onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--color-base-200)'}
+      onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--color-base-100)'}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
@@ -24,26 +31,34 @@ export default function ActivityCard({ activity, className = '' }) {
                 className="h-10 w-10 rounded-full object-cover" 
               />
             ) : (
-              <div className="h-10 w-10 rounded-full flex items-center justify-center font-semibold text-white" style={{backgroundColor: '#003957'}}>
+              <div 
+                className="h-10 w-10 rounded-full flex items-center justify-center font-semibold"
+                style={{
+                  backgroundColor: 'var(--color-primary)',
+                  color: 'var(--color-primary-content)'
+                }}
+              >
                 {activity.initials}
               </div>
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm text-gray-900">
-              <span className="font-medium" style={{color: '#003957'}}>
+            <p className="text-sm text-black">
+              <span className="font-medium" style={{color: 'var(--color-primary)'}}>
                 {activity.userName}
               </span>
               {' '}posted to{' '}
-              <span className="font-medium text-gray-700">{activity.discussionName}</span>
+              <span className="font-medium" style={{color: 'var(--color-accent)'}}>
+                {activity.discussionName}
+              </span>
               {' '}at{' '}
-              <span className="text-gray-600">
+              <span className="text-black">
                 {new Date(activity.createdAt).toLocaleString()}
               </span>
             </p>
           </div>
         </div>
-        <div style={{color: '#003957'}}>
+        <div style={{color: 'var(--color-primary)'}}>
           <i className="fas fa-chevron-right"></i>
         </div>
       </div>
