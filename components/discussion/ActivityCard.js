@@ -48,7 +48,7 @@ export default function ActivityCard({ activity, className = '' }) {
                 {activity.userName}
               </span>
               {' '}posted to{' '}
-              <span className="font-medium" style={{color: 'var(--color-accent)'}}>
+              <span className="font-medium text-black">
                 {activity.discussionName}
               </span>
               {' '}at{' '}

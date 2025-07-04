@@ -27,9 +27,6 @@ export default function Navigation() {
     <nav className="flex items-center space-x-4 text-sm">
       {navigationItems.map((item) => {
         const isActive = currentPath === item.href;
-        const linkClasses = `text-white hover:text-gray-200 transition-colors ${
-          isActive ? 'border-b-4 border-white' : ''
-        }`;
 
         if (item.external) {
           return (
@@ -38,7 +35,13 @@ export default function Navigation() {
               href={item.href}
               target="_blank"
               rel="noopener noreferrer"
-              className={linkClasses}
+              className="transition-colors"
+              style={{
+                color: 'var(--color-primary-content)',
+                textDecoration: 'none'
+              }}
+              onMouseEnter={(e) => e.target.style.opacity = '0.8'}
+              onMouseLeave={(e) => e.target.style.opacity = '1'}
             >
               <i className={`${item.icon} mr-1`}></i> {item.label}
             </a>
@@ -49,7 +52,26 @@ export default function Navigation() {
           <a
             key={item.href}
             href={item.href}
-            className={linkClasses}
+            className={`px-3 py-1 transition-colors ${isActive ? 'rounded' : ''}`}
+            style={isActive ? {
+              backgroundColor: 'var(--color-primary-content)',
+              color: 'var(--color-primary)',
+              borderRadius: 'var(--radius-field)',
+              textDecoration: 'none'
+            } : {
+              color: 'var(--color-primary-content)',
+              textDecoration: 'none'
+            }}
+            onMouseEnter={(e) => {
+              if (!isActive) {
+                e.target.style.opacity = '0.8';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isActive) {
+                e.target.style.opacity = '1';
+              }
+            }}
           >
             <i className={`${item.icon} mr-1`}></i> {item.label}
           </a>
