@@ -653,31 +653,21 @@ export function filterStudentParticipants(participants, teacherUserIds = []) {
   });
 }
 
-// Identify graded reflection assignments
+// Identify graded discussion assignments
 export function filterGradedReflections(posts) {
   const filtered = posts.filter(post => {
-    const topicTitle = post.topic_title || '';
-    const lowerTitle = topicTitle.toLowerCase();
-    
-    // Look for reflection assignments (not introductions)
-    const isReflection = lowerTitle.includes('reflection');
-    
-    // Exclude introduction posts
-    const isIntroduction = lowerTitle.includes('introduction') ||
-                          lowerTitle.includes('intro') ||
-                          lowerTitle.includes('welcome');
-    
-    const include = isReflection && !isIntroduction;
+    // Include any discussion that has an assignment_id (graded)
+    const isGraded = post.assignment_id !== null && post.assignment_id !== undefined;
     
     // Debug logging for each post to see what's being included
-    if (include) {
-      console.log(`Including reflection topic: "${topicTitle}"`);
+    if (isGraded) {
+      console.log(`Including graded topic: "${post.topic_title}" (assignment_id: ${post.assignment_id})`);
     }
     
-    return include;
+    return isGraded;
   });
   
-  console.log(`filterGradedReflections: Found ${filtered.length} graded reflection posts across topics`);
+  console.log(`filterGradedReflections: Found ${filtered.length} graded discussion posts across topics`);
   return filtered;
 }
 
