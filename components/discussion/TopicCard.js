@@ -59,23 +59,11 @@ export default function TopicCard({ topic, className = '' }) {
               </Link>
             ))}
           </div>
+          <div className="text-sm mt-2" style={{color: '#6b7280'}}>
+            Ordered oldest to newest
+          </div>
         </div>
       )}
-
-      {/* Summary Stats */}
-      <div className="text-sm pt-2" style={{
-        color: 'var(--color-neutral-content)',
-        borderTop: 'var(--border) solid var(--color-base-300)'
-      }}>
-        <span className="mr-4">
-          <i className="fas fa-users mr-1"></i>
-          {topic.totalStudentPosts} student posts
-        </span>
-        <span>
-          <i className="fas fa-reply mr-1"></i>
-          {topic.totalTeacherReplies} teacher replies
-        </span>
-      </div>
     </div>
   );
 }

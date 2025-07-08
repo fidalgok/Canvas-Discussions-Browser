@@ -68,6 +68,29 @@ export default function FeedbackPage() {
     // Get teacher user IDs to differentiate teacher replies from student posts
     const teacherUserIds = await fetchCourseEnrollments(apiUrl, apiKey, courseId);
     
+    // Fetch topic metadata to get due dates
+    const topicsRes = await fetch('/api/canvas-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiUrl,
+        apiKey,
+        endpoint: `/courses/${courseId}/discussion_topics`,
+        method: 'GET'
+      })
+    });
+    
+    const topicMetadata = {};
+    if (topicsRes.ok) {
+      const topics = await topicsRes.json();
+      topics.forEach(topic => {
+        topicMetadata[topic.id] = {
+          due_at: topic.due_at,
+          assignment_id: topic.assignment_id
+        };
+      });
+    }
+    
     // Group posts by discussion topic
     const topicMap = {};
     
@@ -110,7 +133,7 @@ export default function FeedbackPage() {
       });
 
       // Check grading status for student posts
-      const studentsNeedingGrades = new Set();
+      const studentsNeedingGrades = [];
       
       if (topic.assignment_id) {
         const studentPosts = topic.studentPosts.filter(post => !post.parent_id);
@@ -137,29 +160,54 @@ export default function FeedbackPage() {
                 const isUngraded = !submission || submission.grade === null || submission.grade === undefined || submission.grade === '';
                 
                 if (isUngraded) {
-                  studentsNeedingGrades.add(studentName);
+                  studentsNeedingGrades.push({
+                    name: studentName,
+                    createdAt: post.created_at
+                  });
                 }
               } else {
-                studentsNeedingGrades.add(studentName);
+                studentsNeedingGrades.push({
+                  name: studentName,
+                  createdAt: post.created_at
+                });
               }
             } catch {
-              studentsNeedingGrades.add(studentName);
+              studentsNeedingGrades.push({
+                name: studentName,
+                createdAt: post.created_at
+              });
             }
           }
         }));
       }
 
+      // Sort students by oldest post creation date first
+      const sortedStudents = studentsNeedingGrades
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+        .map(student => student.name);
+
       return {
         ...topic,
         teacherReplyStats,
-        studentsNeedingGrades: Array.from(studentsNeedingGrades),
+        studentsNeedingGrades: sortedStudents,
         totalStudentPosts: topic.studentPosts.length,
-        totalTeacherReplies: topic.teacherReplies.length
+        totalTeacherReplies: topic.teacherReplies.length,
+        due_at: topicMetadata[topic.id]?.due_at || null
       };
     }));
 
-    // Sort by title
-    topicsArray.sort((a, b) => a.title.localeCompare(b.title));
+    // Sort by due date (soonest first), then by title if no due date
+    topicsArray.sort((a, b) => {
+      // Topics with due dates come first
+      if (a.due_at && b.due_at) {
+        return new Date(a.due_at) - new Date(b.due_at);
+      }
+      if (a.due_at && !b.due_at) return -1;
+      if (!a.due_at && b.due_at) return 1;
+      
+      // Fallback to alphabetical sort by title
+      return a.title.localeCompare(b.title);
+    });
     setTopics(topicsArray);
   }
 
