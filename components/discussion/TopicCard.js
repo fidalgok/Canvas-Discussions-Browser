@@ -62,19 +62,12 @@ export default function TopicCard({ topic, className = '' }) {
         </div>
       )}
 
-      {/* Summary Stats */}
+      {/* Order Control */}
       <div className="text-sm pt-2" style={{
-        color: 'var(--color-neutral-content)',
+        color: 'black',
         borderTop: 'var(--border) solid var(--color-base-300)'
       }}>
-        <span className="mr-4">
-          <i className="fas fa-users mr-1"></i>
-          {topic.totalStudentPosts} student posts
-        </span>
-        <span>
-          <i className="fas fa-reply mr-1"></i>
-          {topic.totalTeacherReplies} teacher replies
-        </span>
+        <span>Ordered oldest to newest</span>
       </div>
     </div>
   );

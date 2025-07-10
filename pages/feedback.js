@@ -59,11 +59,30 @@ export default function FeedbackPage() {
    * Processes grading status, teacher reply patterns, and student participation
    */
   async function loadTopicData() {
+    // Check for cached grading data
+    const gradingCacheKey = `feedback_grading_${courseId}`;
+    const cachedGrading = localStorage.getItem(gradingCacheKey);
+    
+    if (cachedGrading) {
+      try {
+        const { data, timestamp } = JSON.parse(cachedGrading);
+        console.log('✓ Using cached grading data', new Date(timestamp));
+        setTopics(data);
+        return;
+      } catch (error) {
+        localStorage.removeItem(gradingCacheKey);
+      }
+    }
+
+    console.log('→ Fetching fresh grading data from Canvas API');
+    
     // Fetch all discussion posts from Canvas
     const allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
     
     // Filter to only include graded discussions (assignment-based topics)
-    const gradedPosts = filterGradedReflections(allPosts);
+    const gradedPosts = allPosts.filter(post => {
+      return post.assignment_id !== null && post.assignment_id !== undefined;
+    });
     
     // Get teacher user IDs to differentiate teacher replies from student posts
     const teacherUserIds = await fetchCourseEnrollments(apiUrl, apiKey, courseId);
@@ -161,6 +180,12 @@ export default function FeedbackPage() {
     // Sort by title
     topicsArray.sort((a, b) => a.title.localeCompare(b.title));
     setTopics(topicsArray);
+    
+    // Cache the grading data
+    localStorage.setItem(gradingCacheKey, JSON.stringify({
+      data: topicsArray,
+      timestamp: Date.now()
+    }));
   }
 
   /**
@@ -168,7 +193,11 @@ export default function FeedbackPage() {
    * Triggered by the refresh button click
    */
   function handleRefresh() {
+    // Clear both Canvas cache and grading cache
     handleClearCache();
+    const gradingCacheKey = `feedback_grading_${courseId}`;
+    localStorage.removeItem(gradingCacheKey);
+    
     setLoading(true);
     loadTopicData()
       .catch(e => setError(e.message))
