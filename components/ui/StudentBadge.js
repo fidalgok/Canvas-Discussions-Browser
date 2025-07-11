@@ -9,10 +9,24 @@ import Link from 'next/link';
 import NeedsGradingIcon from './NeedsGradingIcon';
 import GradedIcon from './GradedIcon';
 
+/**
+ * Extract initials from teacher names
+ * @param {string} name - Full name (e.g., "John Smith")
+ * @returns {string} Initials (e.g., "JS")
+ */
+function getTeacherInitials(name) {
+  if (!name) return '';
+  return name
+    .split(' ')
+    .map(part => part.charAt(0).toUpperCase())
+    .join('');
+}
+
 export default function StudentBadge({ 
   studentName, 
   isGraded = false, 
   postDate = null,
+  teacherFeedback = [],
   className = '',
   showTooltip = true 
 }) {
@@ -37,11 +51,21 @@ export default function StudentBadge({
         borderRadius: 'var(--radius-selector)'
       };
 
+  // Teacher feedback processing
+  const teacherInitials = teacherFeedback.map(getTeacherInitials).filter(Boolean);
+  const hasTeacherFeedback = isGraded && teacherInitials.length > 0;
+  
+  // Debug: Log teacher feedback data
+  if (teacherFeedback && teacherFeedback.length > 0) {
+    console.log(`🎯 StudentBadge ${studentName}: feedback=${JSON.stringify(teacherFeedback)}, initials=${JSON.stringify(teacherInitials)}, hasTeacherFeedback=${hasTeacherFeedback}`);
+  }
+  
   // Accessibility labels
   const statusText = isGraded ? 'graded' : 'needs grading';
-  const ariaLabel = `${studentName}, ${statusText}${postDate ? `, posted ${new Date(postDate).toLocaleDateString()}` : ''}`;
+  const feedbackText = hasTeacherFeedback ? `, feedback from ${teacherFeedback.join(', ')}` : '';
+  const ariaLabel = `${studentName}, ${statusText}${postDate ? `, posted ${new Date(postDate).toLocaleDateString()}` : ''}${feedbackText}`;
   const tooltipText = isGraded 
-    ? `${studentName} has been graded` 
+    ? `${studentName} has been graded${feedbackText}` 
     : `${studentName} needs grading${postDate ? ` (posted ${new Date(postDate).toLocaleDateString()})` : ''}`;
 
   return (
@@ -53,30 +77,43 @@ export default function StudentBadge({
       title={showTooltip ? tooltipText : undefined}
       role="button"
     >
-      {/* Status Icon */}
-      <span className="flex-shrink-0" aria-hidden="true">
-        {isGraded ? (
+      {/* Status Icon - Only show for graded students */}
+      {isGraded && (
+        <span className="flex-shrink-0" aria-hidden="true">
           <GradedIcon 
             className="w-4 h-4" 
             ariaLabel={`${studentName} is graded`}
           />
-        ) : (
-          <NeedsGradingIcon 
-            className="w-4 h-4" 
-            ariaLabel={`${studentName} needs grading`}
-          />
-        )}
-      </span>
+        </span>
+      )}
 
       {/* Student Name */}
       <span className="truncate font-medium">
         {studentName}
       </span>
 
+      {/* Teacher Initials Badge (for graded students with feedback) */}
+      {hasTeacherFeedback && (
+        <span 
+          className="inline-flex items-center px-2 py-1 text-xs font-medium bg-white text-gray-700 rounded-md border border-gray-200"
+          style={{
+            backgroundColor: 'white',
+            color: 'var(--color-base-content-muted)',
+            fontSize: '0.75rem',
+            borderColor: 'var(--color-base-300)'
+          }}
+          aria-hidden="true"
+          title={`Feedback from: ${teacherFeedback.join(', ')}`}
+        >
+          {teacherInitials.join(', ')}
+        </span>
+      )}
+
       {/* Screen reader only status text */}
       <span className="sr-only">
         {statusText}
         {postDate && `, posted on ${new Date(postDate).toLocaleDateString()}`}
+        {hasTeacherFeedback && `, feedback from ${teacherFeedback.join(', ')}`}
       </span>
 
       {/* Optional post date indicator for needs grading */}
@@ -123,6 +160,7 @@ export function StudentBadgeList({ students = [], className = '', emptyMessage =
             studentName={student.name}
             isGraded={student.isGraded}
             postDate={student.postDate}
+            teacherFeedback={student.teacherFeedback}
           />
         </div>
       ))}

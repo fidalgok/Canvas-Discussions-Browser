@@ -111,7 +111,7 @@ export default function TabContainer({
             tabIndex={activeTab === index ? 0 : -1}
             className={`
               relative px-1 py-3 text-sm transition-all duration-200
-              focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
+              focus:outline-none
               whitespace-nowrap border-b-2 -mb-px
               ${activeTab === index 
                 ? 'font-bold border-black' 

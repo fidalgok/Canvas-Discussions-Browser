@@ -240,9 +240,10 @@ async function processGradingTopics(allPosts, teacherUserIds, { apiUrl, apiKey, 
       submissionByUserId[submission.user_id] = submission;
     });
     
-    // Create complete student list with grading status
+    // Create complete student list with grading status and teacher feedback
     const allStudentsWithStatus = [];
     const studentPostsMap = {};
+    const studentTeacherFeedback = {}; // Track which teachers replied to each student
     
     // Map all student posts by student name
     const studentMainPosts = topic.studentPosts.filter(post => !post.parent_id);
@@ -255,6 +256,39 @@ async function processGradingTopics(allPosts, teacherUserIds, { apiUrl, apiKey, 
           postDate: post.created_at,
           postId: post.id
         };
+        studentTeacherFeedback[studentName] = new Set(); // Initialize feedback tracking
+      }
+    });
+    
+    // Debug: Log teacher identification
+    console.log(`🎓 Teachers identified for topic "${topic.title}":`, Array.from(teacherUserIds));
+    
+    // Track teacher feedback for each student using the flattened post structure
+    console.log(`🔍 Topic "${topic.title}" has ${topic.studentPosts.length} student posts and ${topic.teacherReplies.length} teacher replies`);
+    
+    // Create a map of student post IDs to student names
+    const studentPostIdToName = {};
+    const topicStudentMainPosts = topic.studentPosts.filter(post => !post.parent_id);
+    topicStudentMainPosts.forEach(post => {
+      const studentName = post.user?.display_name || post.user_name;
+      if (studentName && studentPostsMap[studentName]) {
+        studentPostIdToName[post.id] = studentName;
+      }
+    });
+    
+    console.log(`📋 Found ${topicStudentMainPosts.length} main student posts, mapped ${Object.keys(studentPostIdToName).length} post IDs`);
+    
+    // Check teacher replies to see if they're replying to student posts
+    topic.teacherReplies.forEach(reply => {
+      const replyAuthor = reply.user?.display_name || reply.user_name;
+      const replyUserId = reply.user_id || reply.user?.id;
+      const parentPostId = reply.parent_id;
+      
+      // If this teacher reply is to a student's main post, track it
+      if (parentPostId && studentPostIdToName[parentPostId]) {
+        const studentName = studentPostIdToName[parentPostId];
+        studentTeacherFeedback[studentName].add(replyAuthor);
+        console.log(`📝 Teacher feedback tracked: ${replyAuthor} → ${studentName} (post ${parentPostId})`);
       }
     });
     
@@ -266,13 +300,21 @@ async function processGradingTopics(allPosts, teacherUserIds, { apiUrl, apiKey, 
                       submission.grade !== undefined && 
                       submission.grade !== '';
       
+      const teacherFeedbackArray = Array.from(studentTeacherFeedback[studentInfo.name] || []);
+      
       allStudentsWithStatus.push({
         name: studentInfo.name,
         userId: studentInfo.userId,
         postDate: studentInfo.postDate,
         postId: studentInfo.postId,
-        isGraded: isGraded
+        isGraded: isGraded,
+        teacherFeedback: teacherFeedbackArray
       });
+      
+      // Debug: Log students with teacher feedback
+      if (teacherFeedbackArray.length > 0) {
+        console.log(`👨‍🏫 ${studentInfo.name} has feedback from: ${teacherFeedbackArray.join(', ')}`);
+      }
     });
     
     // Sort all students by post date (oldest first)

@@ -26,14 +26,16 @@ export default function TabbedTopicCard({ topic, className = '' }) {
     .map(student => ({
       name: student.name,
       isGraded: false,
-      postDate: student.postDate
+      postDate: student.postDate,
+      teacherFeedback: student.teacherFeedback
     }));
 
   const allStudents = (topic.allStudentsWithStatus || [])
     .map(student => ({
       name: student.name,
       isGraded: student.isGraded,
-      postDate: student.postDate
+      postDate: student.postDate,
+      teacherFeedback: student.teacherFeedback
     }));
 
   // Tab configuration
