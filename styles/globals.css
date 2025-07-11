@@ -7,11 +7,14 @@
   --color-base-100: oklch(100% 0 0);
   --color-base-200: oklch(98% 0 0);
   --color-base-300: oklch(95% 0 0);
+  --color-base-50: oklch(99% 0 0);
   --color-base-content: oklch(21% 0.006 285.885);
+  --color-base-content-muted: oklch(52% 0.006 285.885);
   
-  /* Brand colors */
-  --color-primary: #003957;
+  /* Brand colors - Updated with custom OKLCH values */
+  --color-primary: oklch(0.328 0.075 239.7);
   --color-primary-content: oklch(98% 0.003 247.858);
+  --color-primary-50: oklch(0.95 0.015 239.7);
   --color-secondary: #0D5E93;
   --color-secondary-content: oklch(98% 0 0);
   --color-accent: #726158;
@@ -26,8 +29,12 @@
   --color-success-content: oklch(37% 0.077 168.94);
   --color-warning: #FCF0AD;
   --color-warning-content: oklch(41% 0.112 45.904);
-  --color-error: #E6C0C0;
-  --color-error-content: oklch(27% 0.105 12.094);
+  
+  /* Needs grading colors - Custom OKLCH with black text */
+  --color-error: oklch(0.857 0.042 239.7);
+  --color-error-content: oklch(0% 0 0);
+  --color-error-50: oklch(0.92 0.03 239.7);
+  --color-error-200: oklch(0.8 0.08 239.7);
   
   /* Layout tokens */
   --radius-selector: 0.5rem;
