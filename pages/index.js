@@ -19,6 +19,7 @@ import CredentialsRequired from '../components/ui/CredentialsRequired';
 import ActivityCard from '../components/discussion/ActivityCard';
 import { fetchCanvasDiscussions } from '../js/canvasApi';
 import { fetchCourseEnrollments } from '../js/dataUtils';
+import { processCanvasDataForDashboards, clearProcessedDataCache } from '../js/gradingDataProcessor';
 
 export default function Home() {
   const { credentialsMissing, apiUrl, apiKey, courseId } = useCanvasAuth();
@@ -119,40 +120,27 @@ export default function Home() {
 
   /**
    * Fetches and processes Canvas discussion data to show recent student activity
-   * Filters out teacher posts and sorts chronologically (newest first)
+   * Uses optimized shared data processing to reduce redundant API calls
    */
   async function loadActivityData() {
-    // Fetch all discussion posts and teacher enrollment data
-    const allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
-    const teacherUserIds = await fetchCourseEnrollments(apiUrl, apiKey, courseId);
+    console.log('→ Loading activity data using optimized processor');
     
-    // Filter to only include student posts (exclude teachers)
-    const studentPosts = allPosts.filter(post => {
-      const userId = post.user?.id || post.user_id;
-      return !teacherUserIds.includes(parseInt(userId)) && !teacherUserIds.includes(userId);
+    // Use the shared data processor for efficient Canvas data handling
+    const processedData = await processCanvasDataForDashboards({ apiUrl, apiKey, courseId });
+    
+    // Extract activity data from processed data
+    const { activities, uniqueUsers } = processedData.recentActivity;
+    
+    setRecentActivity(activities);
+    setUniqueUsers(uniqueUsers);
+    
+    console.log('✓ Loaded activity data', {
+      activities: activities.length,
+      uniqueUsers: uniqueUsers
     });
     
-    // Sort by creation date (newest first)
-    studentPosts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    
-    // Transform posts into activity entries with consistent structure
-    const activityEntries = studentPosts.map(post => ({
-      userName: post.user?.display_name || post.user_name || 'Unknown',
-      discussionName: post.topic_title || 'Unknown Discussion',
-      createdAt: post.created_at,
-      postId: post.id,
-      topicId: post.discussion_topic_id,
-      avatar: post.user?.avatar_image_url || null,
-      initials: (post.user?.display_name || post.user_name || 'Unknown').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    }));
-    
-    // Count unique users and update state
-    const uniqueUserNames = new Set(activityEntries.map(entry => entry.userName));
-    setUniqueUsers(uniqueUserNames.size);
-    setRecentActivity(activityEntries);
-    
     // Load enhanced user data now that we have activity data
-    loadEnhancedUserDataWithActivity(activityEntries);
+    loadEnhancedUserDataWithActivity(activities);
   }
 
   /**
@@ -161,6 +149,7 @@ export default function Home() {
    */
   function handleRefresh() {
     handleClearCache();
+    clearProcessedDataCache(courseId);
     setLoading(true);
     
     // Clear Google Sheets cache as well
@@ -251,8 +240,24 @@ export default function Home() {
       return;
     }
 
-    // Fetch all discussion posts and organize by topic
-    const allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
+    // Use cached discussion posts if available, otherwise fetch fresh
+    let allPosts;
+    const cacheKey = `canvas_discussions_${courseId}`;
+    const cached = localStorage.getItem(cacheKey);
+    
+    if (cached) {
+      try {
+        const { data } = JSON.parse(cached);
+        allPosts = data;
+        console.log('✓ Using cached data for markdown export');
+      } catch (error) {
+        console.log('→ Cache invalid, fetching fresh data for export');
+        allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
+      }
+    } else {
+      console.log('→ No cache found, fetching fresh data for export');
+      allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
+    }
     const topicMap = {};
     
     // Create topic structure for each discussion

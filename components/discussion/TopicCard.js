@@ -64,10 +64,10 @@ export default function TopicCard({ topic, className = '' }) {
 
       {/* Order Control */}
       <div className="text-sm pt-2" style={{
-        color: 'black',
+        color: 'var(--color-base-content-muted)',
         borderTop: 'var(--border) solid var(--color-base-300)'
       }}>
-        <span>Ordered oldest to newest</span>
+        <span>✓ Students sorted by submission date (oldest first)</span>
       </div>
     </div>
   );

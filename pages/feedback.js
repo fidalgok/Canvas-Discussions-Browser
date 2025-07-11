@@ -18,6 +18,7 @@ import CredentialsRequired from '../components/ui/CredentialsRequired';
 import TopicCard from '../components/discussion/TopicCard';
 import { fetchCanvasDiscussions } from '../js/canvasApi';
 import { filterGradedReflections, fetchCourseEnrollments } from '../js/dataUtils';
+import { processCanvasDataForDashboards, clearProcessedDataCache } from '../js/gradingDataProcessor';
 import DOMPurify from 'dompurify';
 
 export default function FeedbackPage() {
@@ -56,136 +57,23 @@ export default function FeedbackPage() {
 
   /**
    * Loads and analyzes discussion topic data for feedback dashboard
-   * Processes grading status, teacher reply patterns, and student participation
+   * Uses optimized shared data processing to reduce API calls
    */
   async function loadTopicData() {
-    // Check for cached grading data
-    const gradingCacheKey = `feedback_grading_${courseId}`;
-    const cachedGrading = localStorage.getItem(gradingCacheKey);
+    console.log('🔥🔥🔥 FEEDBACK.JS: Loading grading data using optimized processor - NEW CODE PATH 🔥🔥🔥');
     
-    if (cachedGrading) {
-      try {
-        const { data, timestamp } = JSON.parse(cachedGrading);
-        console.log('✓ Using cached grading data', new Date(timestamp));
-        setTopics(data);
-        return;
-      } catch (error) {
-        localStorage.removeItem(gradingCacheKey);
-      }
-    }
-
-    console.log('→ Fetching fresh grading data from Canvas API');
+    // Use the shared data processor for efficient Canvas data handling
+    const processedData = await processCanvasDataForDashboards({ apiUrl, apiKey, courseId });
     
-    // Fetch all discussion posts from Canvas
-    const allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
+    // Extract grading topics from processed data
+    setTopics(processedData.gradingTopics);
     
-    // Filter to only include graded discussions (assignment-based topics)
-    const gradedPosts = allPosts.filter(post => {
-      return post.assignment_id !== null && post.assignment_id !== undefined;
+    console.log('✓ Loaded grading topics', {
+      topics: processedData.gradingTopics.length,
+      totalStudentsNeedingGrades: processedData.gradingTopics.reduce(
+        (sum, topic) => sum + topic.studentsNeedingGrades.length, 0
+      )
     });
-    
-    // Get teacher user IDs to differentiate teacher replies from student posts
-    const teacherUserIds = await fetchCourseEnrollments(apiUrl, apiKey, courseId);
-    
-    // Group posts by discussion topic
-    const topicMap = {};
-    
-    gradedPosts.forEach(post => {
-      const topicId = post.discussion_topic_id;
-      
-      if (!topicMap[topicId]) {
-        topicMap[topicId] = {
-          id: topicId,
-          title: post.topic_title,
-          assignment_id: post.assignment_id,
-          studentPosts: [],
-          teacherReplies: [],
-          studentsNeedingGrades: new Set()
-        };
-      }
-      
-      const topic = topicMap[topicId];
-      const userId = post.user?.id || post.user_id;
-      const isTeacher = teacherUserIds.includes(parseInt(userId)) || teacherUserIds.includes(userId);
-      
-      if (isTeacher) {
-        topic.teacherReplies.push(post);
-      } else {
-        topic.studentPosts.push(post);
-        const studentName = post.user?.display_name || post.user_name;
-        if (studentName) {
-          topic.studentsNeedingGrades.add(studentName);
-        }
-      }
-    });
-
-    // Check grading status for each student post in each topic
-    const topicsArray = await Promise.all(Object.values(topicMap).map(async topic => {
-      // Count replies by teacher
-      const teacherReplyStats = {};
-      topic.teacherReplies.forEach(reply => {
-        const teacherName = reply.user?.display_name || reply.user_name || 'Unknown Teacher';
-        teacherReplyStats[teacherName] = (teacherReplyStats[teacherName] || 0) + 1;
-      });
-
-      // Check grading status for student posts
-      const studentsNeedingGrades = new Set();
-      
-      if (topic.assignment_id) {
-        const studentPosts = topic.studentPosts.filter(post => !post.parent_id);
-        
-        await Promise.all(studentPosts.map(async post => {
-          const studentName = post.user?.display_name || post.user_name;
-          const userId = post.user?.id || post.user_id;
-          
-          if (studentName && userId && topic.assignment_id) {
-            try {
-              const subRes = await fetch('/api/canvas-proxy', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  apiUrl,
-                  apiKey,
-                  endpoint: `/courses/${courseId}/assignments/${topic.assignment_id}/submissions/${userId}`,
-                  method: 'GET'
-                })
-              });
-              
-              if (subRes.ok) {
-                const submission = await subRes.json();
-                const isUngraded = !submission || submission.grade === null || submission.grade === undefined || submission.grade === '';
-                
-                if (isUngraded) {
-                  studentsNeedingGrades.add(studentName);
-                }
-              } else {
-                studentsNeedingGrades.add(studentName);
-              }
-            } catch {
-              studentsNeedingGrades.add(studentName);
-            }
-          }
-        }));
-      }
-
-      return {
-        ...topic,
-        teacherReplyStats,
-        studentsNeedingGrades: Array.from(studentsNeedingGrades),
-        totalStudentPosts: topic.studentPosts.length,
-        totalTeacherReplies: topic.teacherReplies.length
-      };
-    }));
-
-    // Sort by title
-    topicsArray.sort((a, b) => a.title.localeCompare(b.title));
-    setTopics(topicsArray);
-    
-    // Cache the grading data
-    localStorage.setItem(gradingCacheKey, JSON.stringify({
-      data: topicsArray,
-      timestamp: Date.now()
-    }));
   }
 
   /**
@@ -193,10 +81,9 @@ export default function FeedbackPage() {
    * Triggered by the refresh button click
    */
   function handleRefresh() {
-    // Clear both Canvas cache and grading cache
+    // Clear both Canvas cache and processed data cache
     handleClearCache();
-    const gradingCacheKey = `feedback_grading_${courseId}`;
-    localStorage.removeItem(gradingCacheKey);
+    clearProcessedDataCache(courseId);
     
     setLoading(true);
     loadTopicData()
@@ -282,8 +169,24 @@ export default function FeedbackPage() {
       return;
     }
 
-    // Fetch all discussion posts and organize by topic
-    const allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
+    // Use cached discussion posts if available, otherwise fetch fresh
+    let allPosts;
+    const cacheKey = `canvas_discussions_${courseId}`;
+    const cached = localStorage.getItem(cacheKey);
+    
+    if (cached) {
+      try {
+        const { data } = JSON.parse(cached);
+        allPosts = data;
+        console.log('✓ Using cached data for markdown export');
+      } catch (error) {
+        console.log('→ Cache invalid, fetching fresh data for export');
+        allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
+      }
+    } else {
+      console.log('→ No cache found, fetching fresh data for export');
+      allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
+    }
     const topicMap = {};
     
     // Create topic structure for each discussion
