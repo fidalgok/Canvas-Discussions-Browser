@@ -78,7 +78,6 @@ function logPost(post) {
  * @returns {Promise<Array>} Array of all discussion posts with replies
  */
 export async function fetchCanvasDiscussions({ apiUrl, apiKey, courseId }) {
-  console.log('🚨🚨🚨 WARNING: fetchCanvasDiscussions called directly! Stack trace:', new Error().stack);
   
   // Check for cached data (manual refresh only - no automatic expiry)
   const cacheKey = `canvas_discussions_${courseId}`;

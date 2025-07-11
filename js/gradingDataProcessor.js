@@ -74,7 +74,7 @@ async function fetchAssignmentSubmissionsBatch({ apiUrl, apiKey, courseId }, ass
  */
 export async function processCanvasDataForDashboards({ apiUrl, apiKey, courseId }) {
   const startTime = performance.now();
-  console.log('🚀 OPTIMIZATION ACTIVE: Processing Canvas data for dashboards (NEW CODE PATH)');
+  console.log('→ Processing Canvas data for dashboards (optimized)');
   
   // Check for cached processed data
   const processingCacheKey = `canvas_processed_${courseId}`;
@@ -232,7 +232,6 @@ async function processGradingTopics(allPosts, teacherUserIds, { apiUrl, apiKey, 
     });
     
     // Check grading status using batch submission data
-    const studentsNeedingGrades = [];
     const submissions = submissionsByAssignment[topic.assignment_id] || [];
     
     // Create a map of user_id -> submission for quick lookup
@@ -241,39 +240,53 @@ async function processGradingTopics(allPosts, teacherUserIds, { apiUrl, apiKey, 
       submissionByUserId[submission.user_id] = submission;
     });
     
-    // Check each student post against submissions
-    const studentMainPosts = topic.studentPosts.filter(post => !post.parent_id);
+    // Create complete student list with grading status
+    const allStudentsWithStatus = [];
+    const studentPostsMap = {};
     
+    // Map all student posts by student name
+    const studentMainPosts = topic.studentPosts.filter(post => !post.parent_id);
     studentMainPosts.forEach(post => {
       const studentName = post.user?.display_name || post.user_name;
-      const userId = post.user?.id || post.user_id;
-      
-      if (studentName && userId) {
-        const submission = submissionByUserId[userId];
-        const isUngraded = !submission || 
-                          submission.grade === null || 
-                          submission.grade === undefined || 
-                          submission.grade === '';
-        
-        if (isUngraded) {
-          studentsNeedingGrades.push({
-            name: studentName,
-            userId: userId,
-            postDate: post.created_at,
-            postId: post.id
-          });
-        }
+      if (studentName) {
+        studentPostsMap[studentName] = {
+          name: studentName,
+          userId: post.user?.id || post.user_id,
+          postDate: post.created_at,
+          postId: post.id
+        };
       }
     });
     
-    // Sort students needing grades by post date (oldest first)
-    studentsNeedingGrades.sort((a, b) => new Date(a.postDate) - new Date(b.postDate));
+    // Create status for all students who posted
+    Object.values(studentPostsMap).forEach(studentInfo => {
+      const submission = submissionByUserId[studentInfo.userId];
+      const isGraded = submission && 
+                      submission.grade !== null && 
+                      submission.grade !== undefined && 
+                      submission.grade !== '';
+      
+      allStudentsWithStatus.push({
+        name: studentInfo.name,
+        userId: studentInfo.userId,
+        postDate: studentInfo.postDate,
+        postId: studentInfo.postId,
+        isGraded: isGraded
+      });
+    });
+    
+    // Sort all students by post date (oldest first)
+    allStudentsWithStatus.sort((a, b) => new Date(a.postDate) - new Date(b.postDate));
+    
+    // Filter just the students needing grades
+    const finalStudentsNeedingGrades = allStudentsWithStatus.filter(student => !student.isGraded);
     
     return {
       ...topic,
       teacherReplyStats,
-      studentsNeedingGrades: studentsNeedingGrades.map(student => student.name),
-      studentsNeedingGradesDetailed: studentsNeedingGrades, // Keep detailed info for sorting
+      studentsNeedingGrades: finalStudentsNeedingGrades.map(student => student.name),
+      studentsNeedingGradesDetailed: finalStudentsNeedingGrades, // Keep detailed info for sorting
+      allStudentsWithStatus: allStudentsWithStatus, // NEW: Complete list with status
       totalStudentPosts: topic.studentPosts.length,
       totalTeacherReplies: topic.teacherReplies.length
     };

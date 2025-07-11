@@ -15,7 +15,7 @@ import ErrorMessage from '../components/ui/ErrorMessage';
 import StatusBadge from '../components/ui/StatusBadge';
 import RefreshButton from '../components/ui/RefreshButton';
 import CredentialsRequired from '../components/ui/CredentialsRequired';
-import TopicCard from '../components/discussion/TopicCard';
+import TabbedTopicCard from '../components/discussion/TabbedTopicCard';
 import { fetchCanvasDiscussions } from '../js/canvasApi';
 import { filterGradedReflections, fetchCourseEnrollments } from '../js/dataUtils';
 import { processCanvasDataForDashboards, clearProcessedDataCache } from '../js/gradingDataProcessor';
@@ -60,7 +60,7 @@ export default function FeedbackPage() {
    * Uses optimized shared data processing to reduce API calls
    */
   async function loadTopicData() {
-    console.log('🔥🔥🔥 FEEDBACK.JS: Loading grading data using optimized processor - NEW CODE PATH 🔥🔥🔥');
+    console.log('→ Loading grading data using optimized processor');
     
     // Use the shared data processor for efficient Canvas data handling
     const processedData = await processCanvasDataForDashboards({ apiUrl, apiKey, courseId });
@@ -343,7 +343,7 @@ export default function FeedbackPage() {
               <div className="text-gray-500">No graded discussion topics found.</div>
             ) : (
               topics.map(topic => (
-                <TopicCard key={topic.id} topic={topic} />
+                <TabbedTopicCard key={topic.id} topic={topic} />
               ))
             )}
           </div>

@@ -122,7 +122,7 @@ export default function LazyTopicCard({ topic, className = '', onLoadGradingStat
             color: 'var(--color-base-content-muted)',
             borderTop: 'var(--border) solid var(--color-base-300)'
           }}>
-            <span>✓ Students sorted by submission date (oldest first)</span>
+            <span>Students sorted by submission date (oldest first)</span>
           </div>
         </>
       )}
