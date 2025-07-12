@@ -301,7 +301,7 @@ export default function UserPage() {
                       href={`https://docs.google.com/spreadsheets/d/${localStorage.getItem('google_sheets_id')}/edit`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs px-3 py-2 rounded hover:opacity-90 transition-opacity flex items-center gap-1" 
+                      className="text-xs px-3 py-2 uppercase rounded hover:opacity-90 transition-opacity flex items-center gap-1" 
                       style={{
                         backgroundColor: 'var(--color-success)',
                         color: 'var(--color-success-content)',
@@ -359,7 +359,7 @@ export default function UserPage() {
                           href={`${apiUrl.replace('/api/v1', '')}courses/${courseId}/gradebook/speed_grader?assignment_id=${post.assignment_id}&student_id=${post.user_id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs px-2 py-1 transition hover:opacity-90 flex items-center gap-1"
+                          className="text-xs px-2 py-1 uppercase transition hover:opacity-90 flex items-center gap-1"
                           style={{
                             backgroundColor: post._isUngraded ? 'var(--color-error)' : 'var(--color-success)',
                             color: post._isUngraded ? 'var(--color-error-content)' : 'var(--color-success-content)',

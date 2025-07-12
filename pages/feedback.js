@@ -303,7 +303,7 @@ export default function FeedbackPage() {
                 <StatusBadge type="fresh" />
               )}
               <button
-                className="flex items-center gap-1 text-sm px-2 py-1 font-medium hover:opacity-90 transition-colors"
+                className="flex items-center uppercase text-sm gap-1 text-sm px-2 py-1 font-medium hover:opacity-90 transition-colors"
                 style={{
                   backgroundColor: 'var(--color-secondary)',
                   color: 'var(--color-secondary-content)',
@@ -319,7 +319,7 @@ export default function FeedbackPage() {
               </button>
             </div>
             <button
-              className="flex items-center gap-1 text-sm px-2 py-1 font-medium hover:opacity-90 transition-colors"
+              className="flex items-center gap-1 uppercase text-sm px-2 py-1 font-medium hover:opacity-90 transition-colors"
               style={{
                 backgroundColor: 'var(--color-secondary)',
                 color: 'var(--color-secondary-content)',

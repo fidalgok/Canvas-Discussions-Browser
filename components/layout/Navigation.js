@@ -35,7 +35,7 @@ export default function Navigation() {
               href={item.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="transition-colors"
+              className="transition-colors uppercase"
               style={{
                 color: 'var(--color-primary-content)',
                 textDecoration: 'none'
@@ -52,7 +52,7 @@ export default function Navigation() {
           <a
             key={item.href}
             href={item.href}
-            className={`px-3 py-1 transition-colors ${isActive ? 'rounded' : ''}`}
+            className={`px-3 py-1 transition-colors uppercase ${isActive ? 'rounded' : ''}`}
             style={isActive ? {
               backgroundColor: 'var(--color-primary-content)',
               color: 'var(--color-primary)',
