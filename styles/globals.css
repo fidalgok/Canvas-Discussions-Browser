@@ -46,7 +46,7 @@
 }
 
 body {
-  background-color: var(--color-base-200);
+  background-color: white;
 }
 
 /* Restore default styling for discussion content */

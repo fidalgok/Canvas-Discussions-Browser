@@ -9,7 +9,7 @@ import Link from 'next/link';
 
 export default function TopicCard({ topic, className = '' }) {
   return (
-    <div className={`border rounded-lg p-6 ${className}`} style={{
+    <div className={`border rounded-lg p-6 mb-4 border rounded-lg shadow-md ${className}`} style={{
       borderColor: 'var(--color-base-300)',
       backgroundColor: 'var(--color-base-100)',
       borderRadius: 'var(--radius-box)'

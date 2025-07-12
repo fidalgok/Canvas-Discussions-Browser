@@ -23,9 +23,9 @@ export default function Layout({ children, className = '', containerWidth = 'wid
   const containerClass = getContainerClass();
 
   return (
-    <div className="min-h-screen" style={{backgroundColor: 'var(--color-base-200)'}}>
+    <div className="min-h-screen">
       {/* Full-width header with centered content */}
-      <header className="shadow-md w-full" style={{backgroundColor: 'var(--color-primary)', color: 'var(--color-primary-content)'}}>
+      <header className="w-full" style={{backgroundColor: 'var(--color-primary)', color: 'var(--color-primary-content)'}}>
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
           <Header />
           <Navigation />

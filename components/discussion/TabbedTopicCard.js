@@ -75,7 +75,7 @@ export default function TabbedTopicCard({ topic, className = '' }) {
   };
 
   return (
-    <div className={`border rounded-lg ${className}`} style={{
+    <div className={`border rounded-lg shadow-md mb-8 ${className}`} style={{
       borderColor: 'var(--color-base-300)',
       backgroundColor: 'var(--color-base-100)',
       borderRadius: 'var(--radius-box)'

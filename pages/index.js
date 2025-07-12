@@ -360,7 +360,7 @@ export default function Home() {
   return (
     <Layout>
       <PageContainer description="">
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="bg-white p-6 mb-6">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-4">
               <h2 className="text-2xl font-semibold" style={{color: 'var(--color-primary)'}}>
