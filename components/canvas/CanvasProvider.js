@@ -21,14 +21,14 @@ export function CanvasProvider({ children }) {
   const [courseError, setCourseError] = useState(''); // Course fetch error state
 
   /**
-   * Load stored credentials from sessionStorage on component mount
-   * Restores user's Canvas API settings for current session only
-   * SECURITY: Using sessionStorage instead of localStorage for better security
+   * Load stored credentials from localStorage on component mount
+   * Restores user's Canvas API settings across browser sessions
+   * TODO: Migrate to Convex authentication for better security
    */
   useEffect(() => {
-    setApiUrl(sessionStorage.getItem('canvas_api_url') || '');
-    setApiKey(sessionStorage.getItem('canvas_api_key') || '');
-    setCourseId(sessionStorage.getItem('course_id') || '');
+    setApiUrl(localStorage.getItem('canvas_api_url') || '');
+    setApiKey(localStorage.getItem('canvas_api_key') || '');
+    setCourseId(localStorage.getItem('course_id') || '');
   }, []);
 
   /**
@@ -90,10 +90,11 @@ export function CanvasProvider({ children }) {
     setApiKey(newApiKey);
     setCourseId(newCourseId);
     
-    // Update sessionStorage for better security
-    sessionStorage.setItem('canvas_api_url', newApiUrl);
-    sessionStorage.setItem('canvas_api_key', newApiKey);
-    sessionStorage.setItem('course_id', newCourseId);
+    // Update localStorage for development convenience
+    // TODO: Migrate to Convex authentication for better security
+    localStorage.setItem('canvas_api_url', newApiUrl);
+    localStorage.setItem('canvas_api_key', newApiKey);
+    localStorage.setItem('course_id', newCourseId);
   };
 
   const value = {
