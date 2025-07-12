@@ -16,6 +16,7 @@ import StatusBadge from '../components/ui/StatusBadge';
 import RefreshButton from '../components/ui/RefreshButton';
 import CredentialsRequired from '../components/ui/CredentialsRequired';
 import TabbedTopicCard from '../components/discussion/TabbedTopicCard';
+import TeacherTotalsSummary from '../components/discussion/TeacherTotalsSummary';
 import { fetchCanvasDiscussions } from '../js/canvasApi';
 import { filterGradedReflections, fetchCourseEnrollments } from '../js/dataUtils';
 import { processCanvasDataForDashboards, clearProcessedDataCache } from '../js/gradingDataProcessor';
@@ -293,7 +294,7 @@ export default function FeedbackPage() {
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-4">
               <h2 className="text-2xl font-semibold" style={{color: 'var(--color-primary)'}}>
-                Discussion Topics ({topics.length})
+                Feedback Tracker ({topics.length} Topics)
               </h2>
               {cacheTimestamp && (
                 <StatusBadge type="cached" timestamp={cacheTimestamp} />
@@ -334,7 +335,7 @@ export default function FeedbackPage() {
             </button>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-10">
             {loading ? (
               <LoadingSpinner message="Loading topics..." />
             ) : error ? (
@@ -342,9 +343,15 @@ export default function FeedbackPage() {
             ) : topics.length === 0 ? (
               <div className="text-gray-500">No graded discussion topics found.</div>
             ) : (
-              topics.map(topic => (
-                <TabbedTopicCard key={topic.id} topic={topic} />
-              ))
+              <>
+                {/* Teacher Totals Summary */}
+                <TeacherTotalsSummary topics={topics} />
+                
+                {/* Individual Topic Cards */}
+                {topics.map(topic => (
+                  <TabbedTopicCard key={topic.id} topic={topic} />
+                ))}
+              </>
             )}
           </div>
         </div>

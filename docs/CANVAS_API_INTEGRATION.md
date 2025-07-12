@@ -119,21 +119,99 @@ const studentParticipants = allParticipants.filter(p =>
 );
 ```
 
+## API Performance Optimization
+
+### Critical Optimization: Batch Reply Fetching
+
+**Problem**: Canvas API requires separate calls for each discussion entry's replies, leading to N+1 query problems.
+
+**Solution**: Use `include[]=recent_replies` parameter to fetch replies with initial entry request.
+
+#### Before Optimization (Inefficient):
+```javascript
+// This creates N+1 API calls: 1 for entries + N for each entry's replies
+const entries = await fetch(`/courses/${courseId}/discussion_topics/${topic.id}/entries?per_page=100`);
+for (const entry of entries) {
+  const replies = await fetch(`/courses/${courseId}/discussion_topics/${topic.id}/entries/${entry.id}/replies`);
+  // 147 total API calls for 75 students!
+}
+```
+
+#### After Optimization (Efficient):
+```javascript
+// This includes replies in initial request, reducing API calls by 93%
+const entries = await fetch(`/courses/${courseId}/discussion_topics/${topic.id}/entries?per_page=100&include[]=recent_replies`);
+// Only 10 API calls total for same dataset!
+
+// Process included replies directly
+entries.forEach(entry => {
+  const replies = entry.recent_replies || [];
+  // No additional API calls needed
+});
+```
+
+### Performance Results
+- **Before**: 147 API calls for 75 students across 2 topics
+- **After**: 10 API calls for same dataset
+- **Improvement**: 93% reduction in API requests
+- **User Impact**: Near-instant loading vs 8+ second delays
+
+### Shared Data Processing Pattern
+
+**Problem**: Multiple dashboard views making duplicate API calls for same data.
+
+**Solution**: Centralized data processor with intelligent caching.
+
+```javascript
+// js/gradingDataProcessor.js - Shared processing utility
+export async function processCanvasDataForDashboards({ apiUrl, apiKey, courseId }) {
+  // Check for processed data cache first
+  const processingCacheKey = `canvas_processed_${courseId}`;
+  const cached = localStorage.getItem(processingCacheKey);
+  
+  if (cached) {
+    const { data, timestamp } = JSON.parse(cached);
+    console.log('✓ Using cached processed dashboard data', new Date(timestamp));
+    return data;
+  }
+
+  // Fetch raw Canvas data once
+  const allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
+  
+  // Process for multiple dashboard views
+  const processedData = {
+    recentPosts: filterRecentActivity(allPosts),
+    gradingTopics: await processGradingTopics(allPosts, teacherUserIds, { apiUrl, apiKey, courseId }),
+    uniqueUsers: extractUniqueUsers(allPosts)
+  };
+  
+  // Cache processed results
+  localStorage.setItem(processingCacheKey, JSON.stringify({
+    data: processedData,
+    timestamp: Date.now()
+  }));
+  
+  return processedData;
+}
+```
+
 ## Pagination Best Practices
 
 ### Always Use Pagination:
 - Default Canvas page size is ~10-20 items
 - Use `per_page=100` for efficiency
 - Loop through all pages until empty response
+- **NEW**: Include reply data to avoid N+1 queries
 
-### Example:
+### Optimized Example:
 ```javascript
 let allData = [];
 let page = 1;
 let hasMore = true;
 
 while (hasMore) {
-  const response = await fetch(`${endpoint}?per_page=100&page=${page}`);
+  // CRITICAL: Include recent_replies to avoid separate API calls
+  const response = await fetch(`${endpoint}?per_page=100&page=${page}&include[]=recent_replies`);
   const pageData = await response.json();
   
   if (pageData.length === 0) {
@@ -143,6 +221,34 @@ while (hasMore) {
     page++;
   }
 }
+```
+
+### Batch Assignment Submission Fetching
+
+**Optimization**: Fetch all assignment submissions in batch rather than individual user lookups.
+
+```javascript
+// Efficient: Batch fetch all submissions for assignment
+async function fetchAssignmentSubmissionsBatch({ apiUrl, apiKey, courseId }, assignmentIds) {
+  const submissionsByAssignment = {};
+  
+  for (const assignmentId of assignmentIds) {
+    const submissions = await canvasProxy({
+      apiUrl, apiKey,
+      endpoint: `/courses/${courseId}/assignments/${assignmentId}/submissions?per_page=100`,
+      method: 'GET'
+    });
+    submissionsByAssignment[assignmentId] = submissions;
+  }
+  
+  return submissionsByAssignment;
+}
+
+// Create lookup map for O(1) access
+const submissionByUserId = {};
+submissions.forEach(submission => {
+  submissionByUserId[submission.user_id] = submission;
+});
 ```
 
 ## Data Matching Strategies

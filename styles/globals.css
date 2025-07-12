@@ -26,15 +26,17 @@
   --color-info: #D1DCE0;
   --color-info-content: oklch(29% 0.066 243.157);
   --color-success: #D8DCCA;
+  --color-succcess-50: oklch(0.950 0.025 117.1);
   --color-success-content: oklch(37% 0.077 168.94);
   --color-warning: #FCF0AD;
   --color-warning-content: oklch(41% 0.112 45.904);
   
   /* Needs grading colors - Custom OKLCH with black text */
-  --color-error: oklch(0.857 0.042 239.7);
-  --color-error-content: oklch(0% 0 0);
-  --color-error-50: oklch(0.92 0.03 239.7);
-  --color-error-200: oklch(0.8 0.08 239.7);
+  --color-error: oklch(0.852 0.042 29.0);
+  --color-error-content: oklch(0.239 0.092 29.0);
+  --color-error-50: oklch(0.90 0.035 29.0);
+  --color-error-100: oklch(0.755 0.077 29.0);
+  --color-error-200: oklch(0.560 0.121 29.0);
   
   /* Layout tokens */
   --radius-selector: 0.5rem;

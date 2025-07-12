@@ -42,7 +42,7 @@ export default function TabbedTopicCard({ topic, className = '' }) {
   const tabs = [
     {
       id: 'needs-grading',
-      label: 'Needs Grading',
+      label: 'Needs Feedback',
       count: needsGradingCount,
       icon: <NeedsGradingIcon className="w-4 h-4" />,
       content: (
@@ -75,16 +75,16 @@ export default function TabbedTopicCard({ topic, className = '' }) {
   };
 
   return (
-    <div className={`border rounded-lg shadow-md mb-8 ${className}`} style={{
-      borderColor: 'var(--color-base-300)',
+    <div className={`rounded-none border-l-4 mt-6 mb-8 ${className}`} style={{
+      borderColor: 'var(--color-primary)',
       backgroundColor: 'var(--color-base-100)',
-      borderRadius: 'var(--radius-box)'
+      borderRadius: '0'
     }}>
       {/* Topic Header */}
-      <div className="p-6 pb-0">
+      <div className="px-6 py-0">
         <h3 className="text-xl font-semibold mb-4" style={{color: 'var(--color-primary)'}}>
           {topic.title}
-        </h3>
+        </h3> 
         
         {/* Teacher Feedback Stats */}
         <div className="mb-4">
@@ -95,9 +95,17 @@ export default function TabbedTopicCard({ topic, className = '' }) {
             ) : (
               <span className="ml-2">
                 {Object.entries(topic.teacherReplyStats || {}).map(([teacher, count], index) => (
-                  <span key={teacher}>
-                    {index > 0 && ', '}
-                    <span style={{color: 'var(--color-accent)'}}>{teacher}</span> ({count})
+                  <span key={teacher} className="inline-flex items-center gap-1 mr-4 ">
+                    <span>{teacher}</span>
+                    <span 
+                      className="inline-flex items-center ml-0.5 px-2 py-0.5 text-xs font-medium rounded-md shadow"
+                      style={{
+                        backgroundColor: '#666',
+                        color: '#fff'
+                      }}
+                    >
+                      {count}
+                    </span>
                   </span>
                 ))}
               </span>
@@ -118,23 +126,28 @@ export default function TabbedTopicCard({ topic, className = '' }) {
       </div>
 
       {/* Footer Info */}
-      <div className="px-6 py-3 mt-4 text-sm border-t" style={{
+      <div className="px-6 py-3 mt-4 text-sm" style={{
         color: 'var(--color-base-content-muted)',
         borderColor: 'var(--color-base-300)',
-        backgroundColor: 'var(--color-base-50)'
+        backgroundColor: 'transparent',
       }}>
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
+        <div className="flex">
+          <div className="flex items-center gap-4 pr-5" >
             <span>Students sorted by submission date (oldest first)</span>
-            <span>
+   
+          </div>
+          <div>
+          <span>
+            <span className="font-medium">{topic.totalStudentPosts} posts • {topic.totalTeacherReplies} replies</span>
+             <span className="font-medium px-2"> | </span>    
+             <span>
               <span className="font-medium">{gradedCount} graded</span>
               <span className="mx-2">•</span>
-              <span className="font-medium">{needsGradingCount} pending</span>
+              <span className="font-medium">{needsGradingCount} pending </span>
             </span>
-          </div>
-          <span>
-            {topic.totalStudentPosts} posts • {topic.totalTeacherReplies} replies
+          
           </span>
+          </div>
         </div>
       </div>
     </div>

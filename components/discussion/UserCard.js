@@ -33,7 +33,7 @@ export default function UserCard({ user, className = '' }) {
         <span className="text-gray-500 text-sm">({user.count} posts)</span>
       </div>
       {user.hasUngraded && (
-        <span title="Needs Grading" className="flex items-center gap-1 text-red-700 font-semibold">
+        <span title="Needs Feedback" className="flex items-center gap-1 text-red-700 font-semibold">
           <i className="fas fa-file-circle-exclamation" style={{ color: '#b91c1c', fontSize: 22 }}></i>
           Needs Grading
         </span>

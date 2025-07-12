@@ -34,10 +34,10 @@ export default function Settings() {
   }, [apiUrl, apiKey, courseId]);
 
   // Load Google Sheets settings only once on component mount
-  // SECURITY: Using sessionStorage instead of localStorage for better security
+  // TODO: Migrate to Convex authentication for better security
   useEffect(() => {
-    const loadedSheetId = sessionStorage.getItem('google_sheets_id') || '';
-    const loadedApiKey = sessionStorage.getItem('google_api_key') || '';
+    const loadedSheetId = localStorage.getItem('google_sheets_id') || '';
+    const loadedApiKey = localStorage.getItem('google_api_key') || '';
     
     console.log('📥 Loading Google Sheets settings (mount):', {
       sheetId: loadedSheetId ? 'present' : 'empty',
@@ -59,12 +59,12 @@ export default function Settings() {
       apiKeyValue: googleApiKey ? '***' : 'empty'
     });
     
-    sessionStorage.setItem('google_sheets_id', googleSheetsId);
-    sessionStorage.setItem('google_api_key', googleApiKey);
+    localStorage.setItem('google_sheets_id', googleSheetsId);
+    localStorage.setItem('google_api_key', googleApiKey);
     
     // Verify they were saved
-    const savedSheetId = sessionStorage.getItem('google_sheets_id');
-    const savedApiKey = sessionStorage.getItem('google_api_key');
+    const savedSheetId = localStorage.getItem('google_sheets_id');
+    const savedApiKey = localStorage.getItem('google_api_key');
     console.log('✓ Verified saved Google Sheets settings:', {
       sheetId: savedSheetId ? 'present' : 'empty',
       apiKey: savedApiKey ? 'present' : 'empty'

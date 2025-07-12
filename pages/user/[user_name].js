@@ -7,6 +7,7 @@ import { useCanvasAuth } from '../../components/canvas/useCanvasAuth';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorMessage from '../../components/ui/ErrorMessage';
 import CredentialsRequired from '../../components/ui/CredentialsRequired';
+import GradedIcon from '../../components/ui/GradedIcon';
 import { fetchCanvasUserPosts } from '../../js/canvasApi';
 
 export default function UserPage() {
@@ -358,15 +359,19 @@ export default function UserPage() {
                           href={`${apiUrl.replace('/api/v1', '')}courses/${courseId}/gradebook/speed_grader?assignment_id=${post.assignment_id}&student_id=${post.user_id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs px-2 py-1 transition hover:opacity-90"
+                          className="text-xs px-2 py-1 transition hover:opacity-90 flex items-center gap-1"
                           style={{
                             backgroundColor: post._isUngraded ? 'var(--color-error)' : 'var(--color-success)',
                             color: post._isUngraded ? 'var(--color-error-content)' : 'var(--color-success-content)',
                             borderRadius: 'var(--radius-field)'
                           }}
-                          title={post._isUngraded ? 'Needs Grading' : 'Graded'}
+                          title={post._isUngraded ? 'Grade this assignment in SpeedGrader' : 'View graded assignment in SpeedGrader'}
                         >
-                          SpeedGrader
+                          {!post._isUngraded && (
+                            <GradedIcon className="w-3 h-3 mr-1" />
+                          )}
+                          <span>{post._isUngraded ? 'Needs Grading' : 'Graded'}</span>
+                          <span className="ml-1">→</span>
                         </a>
                       )}
                     </div>

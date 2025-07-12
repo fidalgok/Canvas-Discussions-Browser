@@ -21,7 +21,7 @@ export default function TopicCard({ topic, className = '' }) {
       {/* Teacher Feedback Stats */}
       <div className="mb-4">
         <h4 className="text-lg font-medium mb-2" style={{color: 'var(--color-base-content)'}}>
-          Feedback: 
+          Instructor Feedback: 
           {Object.keys(topic.teacherReplyStats).length === 0 ? (
             <span className="ml-2" style={{color: 'var(--color-error-content)'}}>No teacher replies yet</span>
           ) : (

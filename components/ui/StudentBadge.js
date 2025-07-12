@@ -30,7 +30,7 @@ export default function StudentBadge({
   className = '',
   showTooltip = true 
 }) {
-  const baseClasses = "inline-flex items-center gap-2 px-3 py-1 text-sm font-medium transition-all duration-200 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500";
+  const baseClasses = "inline-flex items-center gap-2 px-2 py-1 text-sm font-medium transition-all duration-200 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500";
   
   // Styling based on grading status
   const statusClasses = isGraded 
@@ -39,14 +39,14 @@ export default function StudentBadge({
   
   const statusStyles = isGraded 
     ? {
-        backgroundColor: 'var(--color-base-200)',
-        color: 'var(--color-base-content)',
+        backgroundColor: 'var(--color-success)',
+        color: '#000',
         borderColor: 'var(--color-base-300)',
         borderRadius: 'var(--radius-selector)'
       }
     : {
         backgroundColor: 'var(--color-error)',
-        color: 'var(--color-error-content)',
+        color: '#000',
         borderColor: 'var(--color-error)',
         borderRadius: 'var(--radius-selector)'
       };
@@ -95,12 +95,12 @@ export default function StudentBadge({
       {/* Teacher Initials Badge (for graded students with feedback) */}
       {hasTeacherFeedback && (
         <span 
-          className="inline-flex items-center px-2 py-1 text-xs font-medium bg-white text-gray-700 rounded-md border border-gray-200"
+          className="inline-flex items-center gap-2 px-2 text-xs font-medium bg-white text-gray-700 rounded-md border border-gray-200"
           style={{
-            backgroundColor: 'white',
+            backgroundColor: 'transparent',
             color: 'var(--color-base-content-muted)',
             fontSize: '0.75rem',
-            borderColor: 'var(--color-base-300)'
+            borderColor: 'transparent'
           }}
           aria-hidden="true"
           title={`Feedback from: ${teacherFeedback.join(', ')}`}
@@ -116,11 +116,16 @@ export default function StudentBadge({
         {hasTeacherFeedback && `, feedback from ${teacherFeedback.join(', ')}`}
       </span>
 
-      {/* Optional post date indicator for needs grading */}
+      {/* Days ago badge for needs grading students */}
       {!isGraded && postDate && (
         <span 
-          className="text-xs opacity-75 ml-1 flex-shrink-0"
+          className="inline-flex items-center px-2 text-xs font-medium rounded-md"
+          style={{
+            backgroundColor: 'transparent',
+            color: 'var(--color-error-content)'
+          }}
           aria-hidden="true"
+          title={`Posted ${new Date(postDate).toLocaleDateString()}`}
         >
           {(() => {
             const daysSince = Math.floor((Date.now() - new Date(postDate)) / (1000 * 60 * 60 * 24));
