@@ -97,7 +97,7 @@ export default function TabContainer({
         role="tablist" 
         ref={tabListRef}
         aria-label={ariaLabel}
-        className="flex gap-6 border-b border-gray-200 w-fit"
+        className="flex gap-6 w-fit"
         style={{ borderColor: 'var(--color-base-300)' }}
       >
         {tabs.map((tab, index) => (
@@ -110,7 +110,7 @@ export default function TabContainer({
             id={`tab-${tab.id || index}`}
             tabIndex={activeTab === index ? 0 : -1}
             className={`
-              relative px-1 py-3 text-sm transition-all duration-200
+              relative px-1 py-2 text-sm transition-all duration-200
               focus:outline-none
               whitespace-nowrap border-b-2 -mb-px
               ${activeTab === index 

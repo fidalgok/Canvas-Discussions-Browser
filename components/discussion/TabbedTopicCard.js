@@ -9,7 +9,6 @@
 import { useState } from 'react';
 import TabContainer from '../ui/TabContainer';
 import { StudentBadgeList } from '../ui/StudentBadge';
-import NeedsGradingIcon from '../ui/NeedsGradingIcon';
 import GradedIcon from '../ui/GradedIcon';
 
 export default function TabbedTopicCard({ topic, className = '' }) {
@@ -44,8 +43,7 @@ export default function TabbedTopicCard({ topic, className = '' }) {
       id: 'needs-grading',
       label: 'Needs Feedback',
       count: needsGradingCount,
-      icon: <NeedsGradingIcon className="w-4 h-4" />,
-      content: (
+       content: (
         <div>
           <StudentBadgeList
             students={needsGradingStudents}
@@ -58,7 +56,6 @@ export default function TabbedTopicCard({ topic, className = '' }) {
       id: 'all-students',
       label: 'All Students',
       count: allStudentsCount,
-      icon: <GradedIcon className="w-4 h-4" />,
       content: (
         <div>
           <StudentBadgeList
@@ -100,7 +97,7 @@ export default function TabbedTopicCard({ topic, className = '' }) {
                     <span 
                       className="inline-flex items-center ml-0.5 px-2 py-0.5 text-xs font-medium rounded-md shadow"
                       style={{
-                        backgroundColor: '#666',
+                        backgroundColor: 'oklch(0.600 0.030 239.7)',
                         color: '#fff'
                       }}
                     >

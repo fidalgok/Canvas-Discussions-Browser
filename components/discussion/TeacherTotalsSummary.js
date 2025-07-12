@@ -27,9 +27,9 @@ export default function TeacherTotalsSummary({ topics = [] }) {
 
   if (teacherCount === 0) {
     return (
-      <div className="border p-6 mb-6 border-l-4 " style={{
+      <div className="px-6 pt-5 pb-1 mb-6 shadow" style={{
         borderColor: 'var(--color-primary)',
-        backgroundColor: 'var(--color-neutral-300)',
+        backgroundColor: 'oklch(0.950 0.006 239.7)',
         borderRadius: 'var(--radius-box)'
       }}>
         <h2 className="text-xl font-semibold mb-4" style={{color: 'var(--color-primary)'}}>
@@ -45,8 +45,8 @@ export default function TeacherTotalsSummary({ topics = [] }) {
   return (
     <div className="px-6 pt-5 pb-1 mb-6 shadow" style={{
       borderColor: 'var(--color-primary)',
-      backgroundColor: '#eee',
-      borderRadius: '3px'
+      backgroundColor: 'oklch(0.950 0.006 239.7)',
+      borderRadius: 'var(--radius-box)'
     }}>
       <div className="mb-4">
         <div className="text-lg font-medium mb-2" style={{color: 'var(--color-base-content)'}}>
@@ -59,7 +59,7 @@ export default function TeacherTotalsSummary({ topics = [] }) {
                 <span 
                   className="inline-flex items-center ml-0.5 px-2 py-0.5 text-xs font-medium rounded-md shadow"
                   style={{
-                    backgroundColor: '#666',
+                    backgroundColor: 'oklch(0.600 0.030 239.7)',
                     color: '#fff'
                   }}
                 >
