@@ -54,7 +54,7 @@ export default function TabbedTopicCard({ topic, className = '' }) {
     },
     {
       id: 'all-students',
-      label: 'All Students',
+      label: 'All Submissions',
       count: allStudentsCount,
       content: (
         <div>

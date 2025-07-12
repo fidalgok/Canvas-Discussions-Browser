@@ -26,14 +26,14 @@ export default function Layout({ children, className = '', containerWidth = 'wid
     <div className="min-h-screen">
       {/* Full-width header with centered content */}
       <header className="w-full" style={{backgroundColor: 'var(--color-primary)', color: 'var(--color-primary-content)'}}>
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+        <div className="max-w-6xl mx-auto px-10 py-4 flex justify-between items-center">
           <Header />
           <Navigation />
         </div>
       </header>
       
       {/* Main content area with configurable max-width and padding */}
-      <main className={`${containerClass} mx-auto px-4 py-8 ${className}`}>
+      <main className={`${containerClass} mx-auto px-4 py-4 ${className}`}>
         {children}
       </main>
     </div>
