@@ -204,57 +204,73 @@ export const syncDiscussions = mutation({
   },
 });
 
-// sets of clears the status of a discussion thread
-
-export const setThreadStatus = mutation({
+/**
+ * Sets or clears the status of a student.
+ */
+export const setStudentStatus = mutation({
   args: {
-    threadId: v.string(),
-    status: v.union(v.literal("claimed"), v.literal("completed"), v.null()),
-    facilitatorName: v.optional(v.union(v.string(), v.null())),
+    studentId: v.string(),
+    studentName: v.string(),
+    status: v.optional(
+      v.union(v.literal("claimed"), v.literal("completed"), v.null())
+    ),
+    facilitatorName: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const { threadId, status, facilitatorName } = args;
-    const existingStatus = await ctx.db
-      .query("thread_statuses")
-      .withIndex("by_threadId", (q) => q.eq("threadId", threadId))
-      .first();
+    const { studentId, studentName, status, facilitatorName } = args;
 
-    // if the status is being cleared set to undefined
+    const existingStatus = await ctx.db
+      .query("student_statuses")
+      .withIndex("by_studentId", (q) => q.eq("studentId", studentId))
+      .unique();
+
     if (!status) {
       if (existingStatus) {
         await ctx.db.delete(existingStatus._id);
       }
-      return;
+      return null;
     }
-    // patch existing status
+
     if (existingStatus) {
       await ctx.db.patch(existingStatus._id, {
-        status,
-        facilitatorName: facilitatorName || existingStatus.facilitatorName,
+        status: status,
+        facilitatorName: facilitatorName,
         statusUpdatedAt: Date.now(),
       });
-      return;
+    } else {
+      await ctx.db.insert("student_statuses", {
+        studentId: studentId,
+        studentName: studentName,
+        status: status,
+        facilitatorName: facilitatorName,
+        statusUpdatedAt: Date.now(),
+      });
     }
-    // create new status
-    await ctx.db.insert("thread_statuses", {
-      threadId,
-      status,
-      facilitatorName,
-      statusUpdatedAt: Date.now(),
-    });
+    return null;
   },
 });
 
-// get the thread status
-export const getThreadStatus = query({
+/**
+ * Gets the status document for a single student.
+ */
+export const getStudentStatus = query({
   args: {
-    threadId: v.string(),
+    studentId: v.string(),
   },
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("thread_statuses")
-      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
-      .first();
+      .query("student_statuses")
+      .withIndex("by_studentId", (q) => q.eq("studentId", args.studentId))
+      .unique();
+  },
+});
+
+/**
+ * Gets all student statuses for the dashboard view.
+ */
+export const getAllStudentStatuses = query({
+  handler: async (ctx) => {
+    return await ctx.db.query("student_statuses").collect();
   },
 });

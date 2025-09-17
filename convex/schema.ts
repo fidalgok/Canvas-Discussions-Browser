@@ -30,10 +30,11 @@ export default defineSchema({
     created_at: v.string(),
   }).index("by_canvas_reply_id", ["canvas_reply_id"]),
 
-  thread_statuses: defineTable({
-    threadId: v.string(),
+  student_statuses: defineTable({
+    studentId: v.string(), // The Canvas user ID
+    studentName: v.string(), // The Canvas user display name
     status: v.optional(v.union(v.literal("claimed"), v.literal("completed"))),
     facilitatorName: v.optional(v.string()),
     statusUpdatedAt: v.optional(v.number()),
-  }).index("by_threadId", ["threadId"]),
+  }).index("by_studentId", ["studentId"]),
 });

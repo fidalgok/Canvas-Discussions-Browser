@@ -26,7 +26,8 @@ export default function TabbedTopicCard({ topic, className = '' }) {
       name: student.name,
       isGraded: false,
       postDate: student.postDate,
-      teacherFeedback: student.teacherFeedback
+      teacherFeedback: student.teacherFeedback,
+      claimStatus: student.claimStatus
     }));
 
   const allStudents = (topic.allStudentsWithStatus || [])
@@ -34,7 +35,8 @@ export default function TabbedTopicCard({ topic, className = '' }) {
       name: student.name,
       isGraded: student.isGraded,
       postDate: student.postDate,
-      teacherFeedback: student.teacherFeedback
+      teacherFeedback: student.teacherFeedback,
+      claimStatus: student.claimStatus
     }));
 
   // Tab configuration
