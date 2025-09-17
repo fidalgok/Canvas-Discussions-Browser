@@ -29,4 +29,11 @@ export default defineSchema({
     message: v.string(),
     created_at: v.string(),
   }).index("by_canvas_reply_id", ["canvas_reply_id"]),
+
+  thread_statuses: defineTable({
+    threadId: v.string(),
+    status: v.optional(v.union(v.literal("claimed"), v.literal("completed"))),
+    facilitatorName: v.optional(v.string()),
+    statusUpdatedAt: v.optional(v.number()),
+  }).index("by_threadId", ["threadId"]),
 });
