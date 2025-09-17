@@ -1,77 +1,52 @@
-# PRD: Discussion Thread Claiming & Completion Status
+# PRD: Student Claiming & Feedback Status
 
-**Objective:** Allow facilitators to claim a discussion thread and mark it as "completed" to coordinate feedback efforts in real-time.
+**Objective:** Allow facilitators to "claim" a student to indicate they are actively providing feedback, preventing duplication of effort and providing real-time visibility into who is responding to which student.
 
-## 1. Problem Statement
+---
 
-Facilitators need a way to see which student discussion threads are currently being reviewed and which ones have already been handled. This prevents duplication of effort and provides a clear overview of the feedback workflow.
+## 1. Final Implementation
 
-## 2. Revised Solution
+This document reflects the final implementation after a key architectural pivot. We moved from a granular, thread-level claiming system to a more holistic, student-level one that better matches the facilitator workflow.
 
-We will create a new data model in Convex to store the status of each discussion thread. This model will "shadow" the discussion data coming from Canvas, linking the status to a specific thread without interfering with the existing data sync process. The UI will display the status in real-time and provide buttons for facilitators to update it.
+### 1.1. Data Model (`convex/schema.ts`)
 
-### Key Components:
+We created a single `student_statuses` table in Convex. This table "shadows" the student data from Canvas and stores only the real-time status information.
 
-*   **New Convex Table:** A new table, `thread_statuses`, will be created to store the status information.
-*   **Convex Schema:** The `thread_statuses` table will have fields for `status`, `facilitatorName`, and `statusUpdatedAt`.
-*   **UI Modifications:** The discussion thread component will be updated to display the status and provide buttons to "Claim" and "Mark as Complete".
-*   **Convex Mutations:** New mutations will be created to set and clear the status of a thread.
+*   **Table:** `student_statuses`
+*   **Key Fields:**
+    *   `studentId: v.string()`: The Canvas User ID. This is the primary link.
+    *   `studentName: v.string()`
+    *   `status: v.optional(v.union(v.literal("claimed"), v.literal("completed")))`
+    *   `facilitatorName: v.optional(v.string())`
+*   **Index:** An index on `studentId` ensures fast lookups.
 
-## 3. Implementation Plan
+### 1.2. Backend Functions (`convex/canvas.ts`)
 
-### Step 1: Create New Convex Table (`convex/schema.ts`)
+We implemented three core student-centric functions:
 
-We will define a new table called `thread_statuses`. This table will store the status for each discussion thread, linked by the thread's ID from Canvas.
+1.  `setStudentStatus`: A mutation to create, update, or delete a student's status. It handles all state changes (claiming, completing, unclaiming).
+2.  `getStudentStatus`: A query to fetch the status for a single student. This is used on the individual user profile page.
+3.  `getAllStudentStatuses`: A query to fetch the statuses for *all* students at once. This is used to efficiently populate the main feedback dashboard.
 
-```typescript
-// in defineSchema
+### 1.3. Frontend Implementation
 
-  thread_statuses: defineTable({
-    threadId: v.string(), // The ID of the discussion thread from Canvas
-    status: v.optional(v.union(v.literal("claimed"), v.literal("completed"))),
-    facilitatorName: v.optional(v.string()),
-    statusUpdatedAt: v.optional(v.number()),
-  }).index("by_threadId", ["threadId"]),
-```
+*   **Claiming UI (`pages/user/[user_name].js`):** The action of claiming was moved to the top of the student's profile page. A single "Claim Student" button (with corresponding "Complete" and "Unclaim" buttons) now appears under the student's name, making the action about the student as a whole.
+*   **Dashboard UI (`pages/feedback.js`):** This page now uses the `getAllStudentStatuses` query to get all statuses. It then merges this real-time data with the Canvas data to pass a `claimStatus` prop down to the `StudentBadge` components.
+*   **Student Badge (`components/ui/StudentBadge.js`):** This component was updated to accept the `claimStatus` prop. If a student's status is "claimed", the badge changes its background color to yellow (`var(--color-warning)`), providing an at-a-glance indicator on the dashboard.
 
-This schema creates a `thread_statuses` table and adds an index on `threadId` for efficient lookups.
+---
 
-### Step 2: Create Convex Mutations (`convex/canvas.ts`)
+## 2. Lessons Learned & Key Decisions
 
-We will create a single, versatile mutation to manage the status.
+This section documents the evolution of the feature for future reference.
 
-**`setThreadStatus({ threadId, status, facilitatorName })`**
+*   **Initial Idea vs. Final Implementation:** We initially started with a thread-centric data model (`thread_statuses`). The plan was to allow facilitators to claim individual discussion posts. 
 
-*   **Purpose:** To set, change, or clear the status of a discussion thread.
-*   **Arguments:**
-    *   `threadId`: The ID of the discussion thread.
-    *   `status`: The new status ("claimed", "completed", or `null` to clear).
-    *   `facilitatorName`: The name of the facilitator making the change.
-*   **Logic:**
-    1.  Find the existing status document for the given `threadId`.
-    2.  If a document exists, update it with the new `status`, `facilitatorName`, and the current timestamp.
-    3.  If no document exists, create a new one with the provided information.
-    4.  If the `status` argument is `null`, it should clear the status fields or delete the document.
+*   **The Pivot:** Through discussion, we realized the core workflow was student-centric, not thread-centric. A facilitator reviews a student's collective work, not just one post at a time. This led to a crucial decision to refactor the entire approach before the UI was fully built.
 
-### Step 3: Modify the Frontend
+*   **Architectural Choice:** We replaced the `thread_statuses` table with `student_statuses`. This dramatically simplified the logic. Instead of asking, "Does this student have any threads that are claimed?", we can now ask, "What is this student's status?" This is a cleaner, more efficient, and more accurate data model for the problem.
 
-We will need to update the component that renders discussion threads (e.g., `components/discussion/TopicCard.js`).
-
-*   **Fetch Status Data:** The component will need to query the `thread_statuses` table using the `useQuery` hook from Convex, passing in the `threadId`.
-*   **Display Status:**
-    *   If the status is "claimed", show: "Claimed by [Facilitator Name]".
-    *   If the status is "completed", show: "Completed by [Facilitator Name]".
-*   **"Claim" Button:**
-    *   If the thread has no status, show a "Claim" button.
-    *   Clicking it will call the `setThreadStatus` mutation with `status: "claimed"`.
-*   **"Mark as Complete" Button:**
-    *   If the thread is "claimed" by the *current user*, show a "Mark as Complete" button.
-    *   Clicking it will call the `setThreadStatus` mutation with `status: "completed"`.
-*   **"Clear Status" Button:**
-    *   We should also provide a way to clear the status (e.g., an "Unclaim" or "Reset" button), which would call the mutation with `status: null`.
-
-## 4. Pair Programming Workflow
-
-We will follow the pair programming model as discussed. I will guide you through each step, and you will implement the code.
-
-**Next Step:** If you approve this revised plan, we can proceed with Step 1: updating `convex/schema.ts` to create the new `thread_statuses` table.
+*   **Data Flow Debugging:** When the status wasn't appearing on the dashboard, we traced the data flow from parent to child (`FeedbackPage` -> `TabbedTopicCard` -> `StudentBadgeList` -> `StudentBadge`). We discovered two bugs:
+    1.  An intermediate component (`TabbedTopicCard`) was not passing the `claimStatus` prop down to its children.
+    2.  The parent page (`FeedbackPage`) was attempting to merge the status data using the wrong key (`student.id` instead of `student.userId`).
+    *   **Lesson:** Having a clear understanding of the data shape at each step of the component tree is critical. Logging the props at each level was essential to finding the mismatch.
