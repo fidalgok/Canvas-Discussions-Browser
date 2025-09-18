@@ -1,0 +1,147 @@
+/**
+ * Accessible Tab Styling - WCAG 2.1 AA Compliant
+ * 
+ * Provides high contrast, scalable, and accessible styling for the tab interface.
+ * Works with browser zoom, dark mode, and assistive technologies.
+ */
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Tab container styling */
+.tab-container {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+/* High contrast focus indicators */
+.tab-container button:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+/* Enhanced focus visibility for keyboard users */
+.tab-container button:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Tab panels */
+.tab-panels {
+  background: white;
+}
+
+/* Student badge hover and focus states */
+.student-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.student-badge:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  transform: translateY(-1px);
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .tab-container {
+    border: 2px solid black;
+  }
+  
+  .tab-container button {
+    border: 1px solid black;
+  }
+  
+  .tab-container button[aria-selected="true"] {
+    background: black;
+    color: white;
+    border-bottom: 3px solid white;
+  }
+  
+  .student-badge {
+    border: 2px solid black;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .tab-container button,
+  .student-badge {
+    transition: none;
+  }
+  
+  .student-badge:hover {
+    transform: none;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .tab-container {
+    background: #1f2937;
+    border-color: #374151;
+  }
+  
+  .tab-panels {
+    background: #1f2937;
+  }
+  
+  .tab-container button {
+    color: #d1d5db;
+  }
+  
+  .tab-container button[aria-selected="true"] {
+    color: #3b82f6;
+    background: #111827;
+  }
+}
+
+/* Mobile responsive design */
+@media (max-width: 640px) {
+  .tab-container button {
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+  
+  .student-badge {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+}
+
+/* Large text / zoom support */
+@media (min-resolution: 192dpi) {
+  .tab-container button {
+    min-height: 44px; /* Minimum touch target */
+  }
+}
+
+/* Print styles */
+@media print {
+  .tab-container button:not([aria-selected="true"]) {
+    display: none;
+  }
+  
+  .tab-panels > div[hidden] {
+    display: block !important;
+  }
+  
+  .tab-panels > div:before {
+    content: attr(aria-labelledby) ": ";
+    font-weight: bold;
+  }
+}

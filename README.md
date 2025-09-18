@@ -1,6 +1,6 @@
 # Canvas Discussion Browser
 
-A Next.js application designed for **educators and instructors** who want to efficiently review and analyze student participation in Canvas LMS discussion forums.
+A Next.js application designed for **educators and instructors** who want to efficiently review and analyze student participation in Canvas LMS discussion forums. Includes Google Sheets integration for enhanced user profiles with institutional context.
 
 ## Why This Tool Exists
 
@@ -24,13 +24,23 @@ The app uses a secure API proxy to access Canvas course data with your personal 
 ## Canvas Discussion Browser Features
 
 - **Settings**: Enter your Canvas API URL, Access Token, and Course ID in a simple settings form. Credentials are stored locally in your browser's localStorage for your privacy.
-- **User List**: View a list of users in the course and their posts.
+- **Google Sheets Integration**: Optionally enhance user profiles with additional data from Google Sheets (institution, role, notes, etc.)
+- **Enhanced User Profiles**: View comprehensive user information with fuzzy name matching between Canvas and external data
+- **User List**: View a list of users in the course and their posts with enhanced profile information
 - **User Posts**: View all posts by a user, sorted oldest-to-newest. Includes link to Speedgrade for ungraded posts.
 
 ## Implementation
 
 - ** Next.js App**: All features are implemented in a modern React/Next.js stack.
 - **Secure API Proxy**: All Canvas API calls are proxied through a Next.js API route to keep your API keys private and avoid CORS issues. No data or credentials are ever sent to third-party servers.
+
+### Google Sheets Integration
+
+- **Enhanced User Profiles**: Supplement Canvas data with information from Google Sheets (institution, role, notes, etc.)
+- **Automatic Name Matching**: Smart matching between Canvas display names and spreadsheet entries, including nickname variations
+- **Flexible Schema**: 8-column format supporting institution, title, notes, assistant type, tags, and custom fields
+- **Visual Integration**: Enhanced profile sidebars and activity indicators throughout the interface
+- **Easy Setup**: Simply provide Google Sheets ID and API key in settings for immediate integration
 
 ### Markdown Export Feature
 
@@ -52,13 +62,16 @@ The app uses a secure API proxy to access Canvas course data with your personal 
    ```
 3. Open [http://localhost:3000](http://localhost:3000) in your browser.
 4. Go to Settings, enter your Canvas API URL, Access Token, and Course ID.
-5. Use the Home page to browse users, view posts, and export discussions.
+5. Optionally configure Google Sheets integration for enhanced user profiles.
+6. Use the Home page to browse users, view posts, and export discussions.
 
 ## Requirements
 - Node.js 18+
 - A valid Canvas API Access Token
 - Your Canvas instance API URL (e.g. https://school.instructure.com/api/v1)
 - Your Course ID
+- (Optional) Google Sheets API key for enhanced user profiles
+- (Optional) Google Sheets ID with properly formatted user data
 
 ## Security Notes & Best Practices
 

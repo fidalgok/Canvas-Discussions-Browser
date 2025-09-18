@@ -21,6 +21,11 @@ export default function Settings() {
   const [localCourseId, setLocalCourseId] = useState('');
   const [saved, setSaved] = useState(false);
   const [cacheCleared, setCacheCleared] = useState(false);
+  
+  // Google Sheets integration state
+  const [googleSheetsId, setGoogleSheetsId] = useState('');
+  const [googleApiKey, setGoogleApiKey] = useState('');
+  const [sheetsTestResult, setSheetsTestResult] = useState(null);
 
   useEffect(() => {
     setLocalApiUrl(apiUrl || 'https://bostoncollege.instructure.com/api/v1');
@@ -28,12 +33,51 @@ export default function Settings() {
     setLocalCourseId(courseId);
   }, [apiUrl, apiKey, courseId]);
 
+  // Load Google Sheets settings only once on component mount
+  // TODO: Migrate to Convex authentication for better security
+  useEffect(() => {
+    const loadedSheetId = localStorage.getItem('google_sheets_id') || '';
+    const loadedApiKey = localStorage.getItem('google_api_key') || '';
+    
+    console.log('📥 Loading Google Sheets settings (mount):', {
+      sheetId: loadedSheetId ? 'present' : 'empty',
+      apiKey: loadedApiKey ? 'present' : 'empty'
+    });
+    
+    setGoogleSheetsId(loadedSheetId);
+    setGoogleApiKey(loadedApiKey);
+  }, []); // Empty dependency array = only run on mount
+
   function handleSave() {
     updateCredentials(localApiUrl, localApiKey, localCourseId);
+    
+    // Save Google Sheets settings
+    console.log('💾 Saving Google Sheets settings:', {
+      sheetId: googleSheetsId ? 'present' : 'empty',
+      apiKey: googleApiKey ? 'present' : 'empty',
+      sheetIdValue: googleSheetsId,
+      apiKeyValue: googleApiKey ? '***' : 'empty'
+    });
+    
+    localStorage.setItem('google_sheets_id', googleSheetsId);
+    localStorage.setItem('google_api_key', googleApiKey);
+    
+    // Verify they were saved
+    const savedSheetId = localStorage.getItem('google_sheets_id');
+    const savedApiKey = localStorage.getItem('google_api_key');
+    console.log('✓ Verified saved Google Sheets settings:', {
+      sheetId: savedSheetId ? 'present' : 'empty',
+      apiKey: savedApiKey ? 'present' : 'empty'
+    });
     
     // Clear cache when credentials are updated
     if (localCourseId) {
       clearCache(localCourseId);
+    }
+    
+    // Clear Google Sheets cache if settings changed
+    if (typeof window !== 'undefined' && window.googleSheetsApi) {
+      window.googleSheetsApi.clearSheetsCache();
     }
     
     setSaved(true);
@@ -48,111 +92,297 @@ export default function Settings() {
     }
   }
 
+  async function testGoogleSheetsConnection() {
+    if (!googleSheetsId || !googleApiKey) {
+      setSheetsTestResult({
+        success: false,
+        message: 'Please enter both Google Sheets ID and API key'
+      });
+      return;
+    }
+
+    setSheetsTestResult({ testing: true });
+
+    try {
+      // Load Google Sheets API if not already loaded
+      if (typeof window !== 'undefined' && !window.googleSheetsApi) {
+        const script = document.createElement('script');
+        script.src = '/js/googleSheetsApi.js';
+        document.head.appendChild(script);
+        await new Promise(resolve => script.onload = resolve);
+      }
+
+      const result = await window.googleSheetsApi.fetchGoogleSheetsData(
+        googleSheetsId, 
+        googleApiKey
+      );
+
+      setSheetsTestResult({
+        success: true,
+        message: `✅ Successfully connected! Found ${result.length} user records.`,
+        data: result.slice(0, 3) // Show first 3 records as preview
+      });
+    } catch (error) {
+      setSheetsTestResult({
+        success: false,
+        message: `❌ Connection failed: ${error.message}`
+      });
+    }
+
+    setTimeout(() => setSheetsTestResult(null), 10000);
+  }
+
   return (
-    <Layout>
+    <Layout containerWidth="narrow">
       <PageContainer>
-        <div className="card bg-base-100 shadow-md">
-          <div className="card-body">
-            <h2 className="card-title text-2xl mb-6">Canvas API Settings</h2>
-            
-            <div className="space-y-4">
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-medium">Canvas API URL</span>
-                </label>
-                <input
-                  type="text"
-                  value={localApiUrl}
-                  onChange={(e) => setLocalApiUrl(e.target.value)}
-                  className="input input-bordered focus:input-primary"
-                  placeholder="https://yourschool.instructure.com/api/v1"
-                />
-                <label className="label">
-                  <span className="label-text-alt opacity-70">
-                    Your Canvas instance API URL (usually ends with /api/v1)
-                  </span>
-                </label>
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-6">Canvas API Settings</h2>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Canvas API URL
+              </label>
+              <input
+                type="text"
+                value={localApiUrl}
+                onChange={(e) => setLocalApiUrl(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent"
+                style={{'--tw-ring-color': '#003957'}}
+                placeholder="https://yourschool.instructure.com/api/v1"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Your Canvas instance API URL (usually ends with /api/v1)
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Canvas API Access Token
+              </label>
+              <input
+                type="password"
+                value={localApiKey}
+                onChange={(e) => setLocalApiKey(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent"
+                style={{'--tw-ring-color': '#003957'}}
+                placeholder="Your Canvas API token"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Generate this in Canvas under Account → Settings → Approved Integrations
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Course ID
+              </label>
+              <input
+                type="text"
+                value={localCourseId}
+                onChange={(e) => setLocalCourseId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent"
+                style={{'--tw-ring-color': '#003957'}}
+                placeholder="12345"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Found in your Canvas course URL
+              </p>
+            </div>
+
+            {courseName && (
+              <div className="rounded-md p-3" style={{
+                backgroundColor: 'var(--color-success)',
+                borderColor: 'var(--color-success-content)',
+                border: 'var(--border) solid'
+              }}>
+                <p className="text-sm" style={{color: 'var(--color-success-content)'}}>
+                  <strong>Connected to:</strong> {courseName}
+                </p>
               </div>
+            )}
+          </div>
+        </div>
 
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-medium">Canvas API Access Token</span>
-                </label>
-                <input
-                  type="password"
-                  value={localApiKey}
-                  onChange={(e) => setLocalApiKey(e.target.value)}
-                  className="input input-bordered focus:input-primary"
-                  placeholder="Your Canvas API token"
-                />
-                <label className="label">
-                  <span className="label-text-alt opacity-70">
-                    Generate this in Canvas under Account → Settings → Approved Integrations
-                  </span>
-                </label>
-              </div>
+        {/* Google Sheets Integration Section */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-6">📊 Google Sheets Integration</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Enhance user profiles with additional data from Google Sheets.
+          </p>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Google Sheets ID
+              </label>
+              <input
+                type="text"
+                value={googleSheetsId}
+                onChange={(e) => {
+                  console.log('📝 Google Sheets ID changed:', e.target.value);
+                  setGoogleSheetsId(e.target.value);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent"
+                style={{'--tw-ring-color': '#003957'}}
+                placeholder="e.g., 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Found in the URL: https://docs.google.com/spreadsheets/d/<strong>SHEET_ID</strong>/edit
+              </p>
+            </div>
 
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-medium">Course ID</span>
-                </label>
-                <input
-                  type="text"
-                  value={localCourseId}
-                  onChange={(e) => setLocalCourseId(e.target.value)}
-                  className="input input-bordered focus:input-primary"
-                  placeholder="12345"
-                />
-                <label className="label">
-                  <span className="label-text-alt opacity-70">
-                    Found in your Canvas course URL
-                  </span>
-                </label>
-              </div>
-
-              {courseName && (
-                <div className="alert alert-success">
-                  <span><strong>Connected to:</strong> {courseName}</span>
-                </div>
-              )}
-
-              <div className="flex items-center space-x-4 pt-4">
-                <button
-                  onClick={handleSave}
-                  className="btn btn-primary"
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Google Sheets API Key
+              </label>
+              <input
+                type="password"
+                value={googleApiKey}
+                onChange={(e) => {
+                  console.log('🔑 Google API Key changed:', e.target.value ? '***' : 'empty');
+                  setGoogleApiKey(e.target.value);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:border-transparent"
+                style={{'--tw-ring-color': '#003957'}}
+                placeholder="Google Sheets API Key"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                <a 
+                  href="https://developers.google.com/sheets/api/guides/authorizing#APIKey" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="hover:opacity-90 transition-colors"
+                  style={{color: 'var(--color-secondary)'}}
                 >
-                  Save Settings
-                </button>
-                
-                <button
-                  onClick={handleClearCache}
-                  className="btn btn-secondary"
-                  disabled={!courseId}
-                >
-                Clear Cache
-              </button>
+                  How to get a Google Sheets API key
+                </a>
+              </p>
+            </div>
 
-                {saved && (
-                  <span className="text-success font-medium">Settings saved!</span>
+            {/* Test Connection Button */}
+            <button
+              onClick={testGoogleSheetsConnection}
+              disabled={!googleSheetsId || !googleApiKey || sheetsTestResult?.testing}
+              className="px-4 py-2 font-semibold hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                backgroundColor: 'var(--color-info)',
+                color: 'var(--color-info-content)',
+                borderRadius: 'var(--radius-field)'
+              }}
+            >
+              {sheetsTestResult?.testing ? 'Testing...' : 'Test Connection'}
+            </button>
+
+            {/* Test Results */}
+            {sheetsTestResult && !sheetsTestResult.testing && (
+              <div 
+                className="p-3 rounded-md"
+                style={{
+                  backgroundColor: sheetsTestResult.success ? 'var(--color-success)' : 'var(--color-error)',
+                  borderColor: sheetsTestResult.success ? 'var(--color-success-content)' : 'var(--color-error-content)',
+                  border: 'var(--border) solid'
+                }}
+              >
+                <p 
+                  className="font-medium"
+                  style={{color: sheetsTestResult.success ? 'var(--color-success-content)' : 'var(--color-error-content)'}}
+                >
+                  {sheetsTestResult.message}
+                </p>
+                {sheetsTestResult.data && (
+                  <div className="mt-2 text-sm">
+                    <p className="font-medium">Preview (first 3 records):</p>
+                    <ul className="mt-1 space-y-1">
+                      {sheetsTestResult.data.map((record, index) => (
+                        <li key={index} className="bg-white bg-opacity-20 p-2 rounded">
+                          <strong>{record.displayName}</strong>
+                          {record.institution && ` - ${record.institution}`}
+                          {record.title && ` (${record.title})`}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
-                
-                {cacheCleared && (
-                  <span className="text-info font-medium">Cache cleared!</span>
-                )}
+              </div>
+            )}
+
+            {/* Schema Information */}
+            <div 
+              className="p-3 rounded-md text-sm"
+              style={{
+                backgroundColor: 'var(--color-neutral)',
+                borderColor: 'var(--color-neutral-content)',
+                border: 'var(--border) solid'
+              }}
+            >
+              <p className="font-medium mb-2" style={{color: 'var(--color-neutral-content)'}}>
+                Required Sheet Format:
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-xs" style={{color: 'var(--color-neutral-content)'}}>
+                <div><strong>Column A:</strong> Display Name</div>
+                <div><strong>Column B:</strong> Institution</div>
+                <div><strong>Column C:</strong> Title</div>
+                <div><strong>Column D:</strong> Notes</div>
+                <div><strong>Column E:</strong> Assistant Type</div>
+                <div><strong>Column F:</strong> Tags</div>
+                <div><strong>Column G:</strong> Custom Field 1</div>
+                <div><strong>Column H:</strong> Custom Field 2</div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="card bg-info">
-          <div className="card-body">
-            <h3 className="card-title text-info-content">Setup Instructions</h3>
-            <div className="text-sm text-info-content space-y-2">
-              <p><strong>1. Get your Canvas API URL:</strong> Usually https://yourschool.instructure.com/api/v1</p>
-              <p><strong>2. Generate an API token:</strong> Go to Canvas → Account → Settings → Approved Integrations → New Access Token</p>
-              <p><strong>3. Find your Course ID:</strong> Look at your course URL - it's the number after /courses/</p>
-              <p><strong>4. Save settings:</strong> Click "Save Settings" to store your credentials locally</p>
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="space-y-4">
+            <div className="flex items-center space-x-4 pt-4">
+              <button
+                onClick={handleSave}
+                className="px-6 py-2 font-semibold hover:opacity-90 transition-colors"
+                style={{
+                  backgroundColor: 'var(--color-secondary)',
+                  color: 'var(--color-secondary-content)',
+                  borderRadius: 'var(--radius-field)'
+                }}
+              >
+                Save Settings
+              </button>
+              
+              <button
+                onClick={handleClearCache}
+                className="px-6 py-2 font-semibold hover:opacity-90 transition-colors"
+                style={{
+                  backgroundColor: 'var(--color-secondary)',
+                  color: 'var(--color-secondary-content)',
+                  borderRadius: 'var(--radius-field)'
+                }}
+                disabled={!courseId}
+              >
+                Clear Cache
+              </button>
+
+              {saved && (
+                <span className="font-medium" style={{color: 'var(--color-success-content)'}}>Settings saved!</span>
+              )}
+              
+              {cacheCleared && (
+                <span className="font-medium" style={{color: 'var(--color-info-content)'}}>Cache cleared!</span>
+              )}
             </div>
+          </div>
+        </div>
+
+        <div className="rounded-lg p-6" style={{
+          backgroundColor: 'var(--color-info)',
+          borderColor: 'var(--color-info-content)',
+          border: 'var(--border) solid'
+        }}>
+          <h3 className="text-lg font-semibold mb-3" style={{color: 'var(--color-info-content)'}}>Setup Instructions</h3>
+          <div className="text-sm space-y-2" style={{color: 'var(--color-info-content)'}}>
+            <p><strong>1. Get your Canvas API URL:</strong> Usually https://yourschool.instructure.com/api/v1</p>
+            <p><strong>2. Generate an API token:</strong> Go to Canvas → Account → Settings → Approved Integrations → New Access Token</p>
+            <p><strong>3. Find your Course ID:</strong> Look at your course URL - it's the number after /courses/</p>
+            <p><strong>4. Save settings:</strong> Click "Save Settings" to store your credentials locally</p>
           </div>
         </div>
       </PageContainer>

@@ -9,21 +9,27 @@ import Link from 'next/link';
 
 export default function TopicCard({ topic, className = '' }) {
   return (
-    <div className={`border border-gray-200 rounded-lg p-6 bg-white ${className}`}>
-      <h3 className="text-xl font-semibold text-gray-900 mb-4">{topic.title}</h3>
+    <div className={`border rounded-lg p-6 mb-4 border rounded-lg shadow-md ${className}`} style={{
+      borderColor: 'var(--color-base-300)',
+      backgroundColor: 'var(--color-base-100)',
+      borderRadius: 'var(--radius-box)'
+    }}>
+      <h3 className="text-xl font-semibold mb-4" style={{color: 'var(--color-primary)'}}>
+        {topic.title}
+      </h3>
       
       {/* Teacher Feedback Stats */}
       <div className="mb-4">
-        <h4 className="text-lg font-medium text-gray-700 mb-2">
-          Feedback: 
+        <h4 className="text-lg font-medium mb-2" style={{color: 'var(--color-base-content)'}}>
+          Instructor Feedback: 
           {Object.keys(topic.teacherReplyStats).length === 0 ? (
-            <span className="text-red-600 ml-2">No teacher replies yet</span>
+            <span className="ml-2" style={{color: 'var(--color-error-content)'}}>No teacher replies yet</span>
           ) : (
             <span className="ml-2">
               {Object.entries(topic.teacherReplyStats).map(([teacher, count], index) => (
                 <span key={teacher}>
                   {index > 0 && ', '}
-                  <span >{teacher}</span> ({count})
+                  <span style={{color: 'var(--color-accent)'}}>{teacher}</span> ({count})
                 </span>
               ))}
             </span>
@@ -34,7 +40,7 @@ export default function TopicCard({ topic, className = '' }) {
       {/* Students Needing Grades */}
       {topic.studentsNeedingGrades.length > 0 && (
         <div className="mb-4">
-          <h4 className="text-lg font-medium text-gray-700 mb-2">
+          <h4 className="text-lg font-medium mb-2" style={{color: 'var(--color-base-content)'}}>
             Students needing grades ({topic.studentsNeedingGrades.length}):
           </h4>
           <div className="flex flex-wrap gap-2">
@@ -42,8 +48,12 @@ export default function TopicCard({ topic, className = '' }) {
               <Link
                 key={studentName}
                 href={`/user/${encodeURIComponent(studentName)}`}
-                className="inline-block px-3 py-1 rounded-full text-sm transition-colors text-white hover:opacity-80"
-                style={{backgroundColor: '#003957'}}
+                className="inline-block px-3 py-1 text-sm transition-colors hover:opacity-80"
+                style={{
+                  backgroundColor: 'var(--color-error)',
+                  color: 'var(--color-error-content)',
+                  borderRadius: 'var(--radius-selector)'
+                }}
               >
                 {studentName}
               </Link>
@@ -52,16 +62,12 @@ export default function TopicCard({ topic, className = '' }) {
         </div>
       )}
 
-      {/* Summary Stats */}
-      <div className="text-sm text-gray-600 pt-2 border-t">
-        <span className="mr-4">
-          <i className="fas fa-users mr-1"></i>
-          {topic.totalStudentPosts} student posts
-        </span>
-        <span>
-          <i className="fas fa-reply mr-1"></i>
-          {topic.totalTeacherReplies} teacher replies
-        </span>
+      {/* Order Control */}
+      <div className="text-sm pt-2" style={{
+        color: 'var(--color-base-content-muted)',
+        borderTop: 'var(--border) solid var(--color-base-300)'
+      }}>
+        <span>Students sorted by submission date (oldest first)</span>
       </div>
     </div>
   );

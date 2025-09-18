@@ -10,13 +10,15 @@ export default function StatusBadge({ type, timestamp = null, className = '' }) 
     switch (type) {
       case 'cached':
         return {
-          text: `⚡ Last refreshed: ${timestamp ? new Date(timestamp).toLocaleString() : 'Unknown'}`,
-          badgeClass: 'badge-success'
+          text: `Last refreshed: ${timestamp ? new Date(timestamp).toLocaleString() : 'Unknown'}`,
+          bgColor: 'transparent',
+          textColor: 'var(--color-success-content)'
         };
       case 'fresh':
         return {
           text: '🔄 Fresh data',
-          badgeClass: 'badge-info'
+          bgColor: 'var(--color-info)',
+          textColor: 'var(--color-info-content)'
         };
       default:
         return null;
@@ -27,7 +29,14 @@ export default function StatusBadge({ type, timestamp = null, className = '' }) 
   if (!badge) return null;
 
   return (
-    <span className={`badge ${badge.badgeClass} ${className}`}>
+    <span 
+      className={`text-sm px-2 py-1 ${className}`}
+      style={{
+        backgroundColor: badge.bgColor,
+        color: badge.textColor,
+        borderRadius: 'var(--radius-field)'
+      }}
+    >
       {badge.text}
     </span>
   );

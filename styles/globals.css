@@ -1,6 +1,54 @@
 @unocss;
 
-@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css');
+/* CDIL-BC Theme Variables */
+:root {
+  /* Base colors */
+  --color-base-100: oklch(100% 0 0);
+  --color-base-200: oklch(98% 0 0);
+  --color-base-300: oklch(95% 0 0);
+  --color-base-50: oklch(99% 0 0);
+  --color-base-content: oklch(21% 0.006 285.885);
+  --color-base-content-muted: oklch(52% 0.006 285.885);
+  
+  /* Brand colors - Updated with custom OKLCH values */
+  --color-primary: oklch(0.328 0.075 239.7);
+  --color-primary-content: oklch(98% 0.003 247.858);
+  --color-primary-50: oklch(0.95 0.015 239.7);
+  --color-secondary: #0D5E93;
+  --color-secondary-content: oklch(98% 0 0);
+  --color-accent: #726158;
+  --color-accent-content: oklch(98% 0.002 247.839);
+  
+  /* Semantic colors */
+  --color-neutral: oklch(14% 0.005 285.823);
+  --color-neutral-content: oklch(92% 0.004 286.32);
+  --color-info: #D1DCE0;
+  --color-info-content: oklch(29% 0.066 243.157);
+  --color-success: #D8DCCA;
+  --color-succcess-50: oklch(0.950 0.025 117.1);
+  --color-success-content: oklch(37% 0.077 168.94);
+  --color-warning: #FCF0AD;
+  --color-warning-content: oklch(41% 0.112 45.904);
+  
+  /* Needs grading colors - Custom OKLCH with black text */
+  --color-error: oklch(0.852 0.042 29.0);
+  --color-error-content: oklch(0.239 0.092 29.0);
+  --color-error-50: oklch(0.90 0.035 29.0);
+  --color-error-100: oklch(0.755 0.077 29.0);
+  --color-error-200: oklch(0.560 0.121 29.0);
+  
+  /* Layout tokens */
+  --radius-selector: 0.5rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+}
+
+body {
+  background-color: white;
+}
 
 /* Restore default styling for discussion content */
 .prose {

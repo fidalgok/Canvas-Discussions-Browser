@@ -26,7 +26,7 @@ export default function GradingIndicator({
 
   return (
     <span 
-      title="Needs Grading" 
+      title="Needs Feedback" 
       className={`flex items-center gap-1 font-semibold ${sizeClasses[size]} ${className}`}
       style={{color: '#d73502'}}
     >

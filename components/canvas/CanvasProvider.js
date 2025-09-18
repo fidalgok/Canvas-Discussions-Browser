@@ -22,7 +22,8 @@ export function CanvasProvider({ children }) {
 
   /**
    * Load stored credentials from localStorage on component mount
-   * Restores user's Canvas API settings from previous session
+   * Restores user's Canvas API settings across browser sessions
+   * TODO: Migrate to Convex authentication for better security
    */
   useEffect(() => {
     setApiUrl(localStorage.getItem('canvas_api_url') || '');
@@ -89,7 +90,8 @@ export function CanvasProvider({ children }) {
     setApiKey(newApiKey);
     setCourseId(newCourseId);
     
-    // Update localStorage
+    // Update localStorage for development convenience
+    // TODO: Migrate to Convex authentication for better security
     localStorage.setItem('canvas_api_url', newApiUrl);
     localStorage.setItem('canvas_api_key', newApiKey);
     localStorage.setItem('course_id', newCourseId);

@@ -19,6 +19,7 @@ import CredentialsRequired from '../components/ui/CredentialsRequired';
 import ActivityCard from '../components/discussion/ActivityCard';
 import { fetchCanvasDiscussions } from '../js/canvasApi';
 import { fetchCourseEnrollments } from '../js/dataUtils';
+import { processCanvasDataForDashboards, clearProcessedDataCache } from '../js/gradingDataProcessor';
 
 export default function Home() {
   const { credentialsMissing, apiUrl, apiKey, courseId } = useCanvasAuth();
@@ -34,6 +35,8 @@ export default function Home() {
   const [uniqueUsers, setUniqueUsers] = useState(0);         // Count of unique student users
   const [loading, setLoading] = useState(false);             // Loading state for async operations
   const [error, setError] = useState('');                    // Error message display
+  const [enhancedUsers, setEnhancedUsers] = useState([]);    // Enhanced user data from Google Sheets
+  const [sheetsStatus, setSheetsStatus] = useState(null);    // Google Sheets integration status
 
   /**
    * Load activity data when credentials or course changes
@@ -53,41 +56,91 @@ export default function Home() {
         setLoading(false);
         cleanupListener();
       });
-  }, [apiUrl, apiKey, courseId]);
+    
+    // Load Google Sheets data after Canvas data is loaded
+    // This will be called from loadActivityData after recentActivity is populated
+  }, [apiUrl, apiKey, courseId]);  
+  
+  /**
+   * Load enhanced user data from Google Sheets
+   * Takes activity data as parameter to avoid dependency issues
+   */
+  async function loadEnhancedUserDataWithActivity(activityData) {
+    const googleSheetsId = localStorage.getItem('google_sheets_id');
+    const googleApiKey = localStorage.getItem('google_api_key');
+    
+    if (!googleSheetsId || !googleApiKey) {
+      setSheetsStatus({ enabled: false, reason: 'not_configured' });
+      return;
+    }
+    
+    try {
+      // Load Google Sheets API if not already loaded
+      if (typeof window !== 'undefined' && !window.googleSheetsApi) {
+        const script = document.createElement('script');
+        script.src = '/js/googleSheetsApi.js';
+        document.head.appendChild(script);
+        await new Promise(resolve => script.onload = resolve);
+      }
+      
+      // Create mock canvas users from activity data
+      const mockCanvasUsers = activityData.map(activity => ({
+        display_name: activity.userName,
+        user_name: activity.userName
+      }));
+      
+      if (mockCanvasUsers.length === 0) {
+        setSheetsStatus({ enabled: true, matched: 0, total: 0 });
+        return;
+      }
+      
+      const result = await window.googleSheetsApi.fetchAndMatchSheetsData({
+        sheetId: googleSheetsId,
+        apiKey: googleApiKey,
+        canvasUsers: mockCanvasUsers,
+        useCache: true
+      });
+      
+      if (result.success) {
+        setEnhancedUsers(result.matchedUsers);
+        setSheetsStatus({ 
+          enabled: true, 
+          matched: result.stats.matched,
+          total: result.stats.totalCanvas,
+          matchRate: result.stats.matchRate
+        });
+      } else {
+        setSheetsStatus({ enabled: false, reason: 'fetch_failed', error: result.error });
+      }
+    } catch (error) {
+      console.warn('Google Sheets integration failed:', error);
+      setSheetsStatus({ enabled: false, reason: 'error', error: error.message });
+    }
+  }
 
   /**
    * Fetches and processes Canvas discussion data to show recent student activity
-   * Filters out teacher posts and sorts chronologically (newest first)
+   * Uses optimized shared data processing to reduce redundant API calls
    */
   async function loadActivityData() {
-    // Fetch all discussion posts and teacher enrollment data
-    const allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
-    const teacherUserIds = await fetchCourseEnrollments(apiUrl, apiKey, courseId);
+    console.log('→ Loading activity data using optimized processor');
     
-    // Filter to only include student posts (exclude teachers)
-    const studentPosts = allPosts.filter(post => {
-      const userId = post.user?.id || post.user_id;
-      return !teacherUserIds.includes(parseInt(userId)) && !teacherUserIds.includes(userId);
+    // Use the shared data processor for efficient Canvas data handling
+    const processedData = await processCanvasDataForDashboards({ apiUrl, apiKey, courseId });
+    
+    // Extract activity data from processed data
+    const { activities, uniqueUsers } = processedData.recentActivity;
+    
+    setRecentActivity(activities);
+    setUniqueUsers(uniqueUsers);
+    
+    console.log('✓ Loaded activity data', {
+      activities: activities.length,
+      uniqueUsers: uniqueUsers
     });
     
-    // Sort by creation date (newest first)
-    studentPosts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    
-    // Transform posts into activity entries with consistent structure
-    const activityEntries = studentPosts.map(post => ({
-      userName: post.user?.display_name || post.user_name || 'Unknown',
-      discussionName: post.topic_title || 'Unknown Discussion',
-      createdAt: post.created_at,
-      postId: post.id,
-      topicId: post.discussion_topic_id,
-      avatar: post.user?.avatar_image_url || null,
-      initials: (post.user?.display_name || post.user_name || 'Unknown').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    }));
-    
-    // Count unique users and update state
-    const uniqueUserNames = new Set(activityEntries.map(entry => entry.userName));
-    setUniqueUsers(uniqueUserNames.size);
-    setRecentActivity(activityEntries);
+    // Load enhanced user data now that we have activity data
+    loadEnhancedUserDataWithActivity(activities);
   }
 
   /**
@@ -96,7 +149,14 @@ export default function Home() {
    */
   function handleRefresh() {
     handleClearCache();
+    clearProcessedDataCache(courseId);
     setLoading(true);
+    
+    // Clear Google Sheets cache as well
+    if (typeof window !== 'undefined' && window.googleSheetsApi) {
+      window.googleSheetsApi.clearSheetsCache();
+    }
+    
     loadActivityData()
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
@@ -180,8 +240,24 @@ export default function Home() {
       return;
     }
 
-    // Fetch all discussion posts and organize by topic
-    const allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
+    // Use cached discussion posts if available, otherwise fetch fresh
+    let allPosts;
+    const cacheKey = `canvas_discussions_${courseId}`;
+    const cached = localStorage.getItem(cacheKey);
+    
+    if (cached) {
+      try {
+        const { data } = JSON.parse(cached);
+        allPosts = data;
+        console.log('✓ Using cached data for markdown export');
+      } catch (error) {
+        console.log('→ Cache invalid, fetching fresh data for export');
+        allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
+      }
+    } else {
+      console.log('→ No cache found, fetching fresh data for export');
+      allPosts = await fetchCanvasDiscussions({ apiUrl, apiKey, courseId });
+    }
     const topicMap = {};
     
     // Create topic structure for each discussion
@@ -284,54 +360,61 @@ export default function Home() {
   return (
     <Layout>
       <PageContainer description="">
-        <div className="card bg-base-100 shadow-md">
-          <div className="card-body">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-4">
-                <h2 className="card-title text-2xl text-base-content">
-                  Recent Activity - {uniqueUsers} Users
-                </h2>
-                {cacheTimestamp && (
-                  <StatusBadge type="cached" timestamp={cacheTimestamp} />
-                )}
-                {dataSource === 'fresh' && !cacheTimestamp && (
-                  <StatusBadge type="fresh" />
-                )}
-                <button
-                  className="btn btn-sm btn-primary"
-                  onClick={handleRefresh}
-                  disabled={loading}
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Refresh
-                </button>
-              </div>
+        <div className="bg-white p-6 mb-6">
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-4">
+              <h2 className="text-2xl font-semibold" style={{color: 'var(--color-primary)'}}>
+                Recent Activity ({uniqueUsers} Users)
+              </h2>
+            </div>
+               <div className="flex items-center gap-2">
+               {cacheTimestamp && (
+                <StatusBadge type="cached" timestamp={cacheTimestamp} />
+              )}
+              {dataSource === 'fresh' && !cacheTimestamp && (
+                <StatusBadge type="fresh" />
+              )}
               <button
-                className="btn btn-sm btn-primary"
-                onClick={handleDownloadMarkdown}
+                className="flex items-center gap-1 uppercase text-sm px-2 py-1 font-medium hover:opacity-90 transition-colors"
+                style={{
+                  backgroundColor: 'var(--color-secondary)',
+                  color: 'var(--color-secondary-content)',
+                  borderRadius: 'var(--radius-field)'
+                }}
+                onClick={handleRefresh}
+                disabled={loading}
               >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path fillRule="evenodd" d="M4.755 10.059a7.5 7.5 0 0112.548-3.364l1.903 1.903h-3.183a.75.75 0 100 1.5h4.992a.75.75 0 00.75-.75V4.356a.75.75 0 00-1.5 0v3.18l-1.9-1.9A9 9 0 003.306 9.67a.75.75 0 101.45.388zm15.408 3.352a.75.75 0 00-.919.53 7.5 7.5 0 01-12.548 3.364l-1.902-1.903h3.183a.75.75 0 000-1.5H2.984a.75.75 0 00-.75.75v4.992a.75.75 0 001.5 0v-3.18l1.9 1.9a9 9 0 0015.059-4.035.75.75 0 00-.53-.918z" clipRule="evenodd" />
                 </svg>
                 Download All Conversations
               </button>
-            </div>
+             </div>
+          </div>
 
-            <div className="space-y-4">
-              {loading ? (
-                <LoadingSpinner message="Loading recent activity..." />
-              ) : error ? (
-                <ErrorMessage message={error} onRetry={handleRefresh} />
-              ) : recentActivity.length === 0 ? (
-                <div className="text-base-content opacity-70">No recent activity found.</div>
-              ) : (
-                recentActivity.map((activity, index) => (
-                  <ActivityCard key={index} activity={activity} />
-                ))
-              )}
-            </div>
+          <div className="space-y-4">
+            {loading ? (
+              <LoadingSpinner message="Loading recent activity..." />
+            ) : error ? (
+              <ErrorMessage message={error} onRetry={handleRefresh} />
+            ) : recentActivity.length === 0 ? (
+              <div className="text-gray-500">No recent activity found.</div>
+            ) : (
+              recentActivity.map((activity, index) => {
+                // Find enhanced data for this user
+                const enhancedData = enhancedUsers.find(user => 
+                  user.display_name === activity.userName || user.user_name === activity.userName
+                );
+                
+                return (
+                  <ActivityCard 
+                    key={index} 
+                    activity={activity} 
+                    enhancedData={enhancedData?.enhancedData || null}
+                  />
+                );
+              })
+            )}
           </div>
         </div>
       </PageContainer>

@@ -78,6 +78,7 @@ function logPost(post) {
  * @returns {Promise<Array>} Array of all discussion posts with replies
  */
 export async function fetchCanvasDiscussions({ apiUrl, apiKey, courseId }) {
+  
   // Check for cached data (manual refresh only - no automatic expiry)
   const cacheKey = `canvas_discussions_${courseId}`;
   const cached = localStorage.getItem(cacheKey);
@@ -134,7 +135,7 @@ export async function fetchCanvasDiscussions({ apiUrl, apiKey, courseId }) {
       const entries = await canvasProxy({
         apiUrl,
         apiKey,
-        endpoint: `/courses/${courseId}/discussion_topics/${topic.id}/entries?per_page=100&page=${page}`,
+        endpoint: `/courses/${courseId}/discussion_topics/${topic.id}/entries?per_page=100&page=${page}&include[]=recent_replies`,
         method: 'GET'
       });
       
@@ -162,26 +163,10 @@ export async function fetchCanvasDiscussions({ apiUrl, apiKey, courseId }) {
         }
         allPosts.push(entry);
 
-        // Fetch all replies to this entry with full pagination
-        // Note: Canvas API requires separate calls for replies to each entry
-        let allReplies = [];
-        let replyPage = 1;
-        let hasMoreReplies = true;
-        
-        while (hasMoreReplies) {
-          const replies = await canvasProxy({
-            apiUrl,
-            apiKey,
-            endpoint: `/courses/${courseId}/discussion_topics/${topic.id}/entries/${entry.id}/replies?per_page=100&page=${replyPage}`,
-            method: 'GET'
-          });
-          
-          allReplies = allReplies.concat(replies);
-          hasMoreReplies = replies.length === 100;
-          replyPage++;
-        }
-        
-        const replies = allReplies;
+        // Process replies that came with the entry (from include[]=recent_replies)
+        // This eliminates individual API calls for each entry's replies
+        const replies = entry.recent_replies || [];
+        console.log(`🔍 DEBUG: Entry ${entry.id} has ${replies.length} included replies`);
 
         // Process each reply with same deduplication and enrichment
         for (const reply of replies) {
