@@ -356,7 +356,7 @@ export default function UserPage() {
                       </h3>
                       {post.assignment_id && post.user_id && courseId && assignmentsMap[post.assignment_id]?.points_possible > 0 && (
                         <a
-                          href={`${apiUrl.replace('/api/v1', '')}courses/${courseId}/gradebook/speed_grader?assignment_id=${post.assignment_id}&student_id=${post.user_id}`}
+                          href={`${apiUrl.replace('/api/v1', '')}/courses/${courseId}/gradebook/speed_grader?assignment_id=${post.assignment_id}&student_id=${post.user_id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs px-2 py-1 uppercase transition hover:opacity-90 flex items-center gap-1"
