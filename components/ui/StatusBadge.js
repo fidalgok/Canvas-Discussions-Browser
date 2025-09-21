@@ -11,7 +11,7 @@ export default function StatusBadge({ type, timestamp = null, className = '' }) 
       case 'cached':
         return {
           text: `Last refreshed: ${timestamp ? new Date(timestamp).toLocaleString() : 'Unknown'}`,
-          bgColor: 'var(--color-success)',
+          bgColor: 'transparent',
           textColor: 'var(--color-success-content)'
         };
       case 'fresh':

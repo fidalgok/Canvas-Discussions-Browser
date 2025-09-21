@@ -69,12 +69,147 @@ export default function FeedbackPage() {
     // Extract grading topics from processed data
     setTopics(processedData.gradingTopics);
     
-    console.log('✓ Loaded grading topics', {
-      topics: processedData.gradingTopics.length,
-      totalStudentsNeedingGrades: processedData.gradingTopics.reduce(
-        (sum, topic) => sum + topic.studentsNeedingGrades.length, 0
-      )
+    // Fetch topic metadata to get due dates
+    const topicsRes = await fetch('/api/canvas-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiUrl,
+        apiKey,
+        endpoint: `/courses/${courseId}/discussion_topics`,
+        method: 'GET'
+      })
     });
+    
+    const topicMetadata = {};
+    if (topicsRes.ok) {
+      const topics = await topicsRes.json();
+      topics.forEach(topic => {
+        topicMetadata[topic.id] = {
+          due_at: topic.due_at,
+          assignment_id: topic.assignment_id
+        };
+      });
+    }
+    
+    // Group posts by discussion topic
+    const topicMap = {};
+    
+    gradedPosts.forEach(post => {
+      const topicId = post.discussion_topic_id;
+      
+      if (!topicMap[topicId]) {
+        topicMap[topicId] = {
+          id: topicId,
+          title: post.topic_title,
+          assignment_id: post.assignment_id,
+          studentPosts: [],
+          teacherReplies: [],
+          studentsNeedingGrades: new Set()
+        };
+      }
+      
+      const topic = topicMap[topicId];
+      const userId = post.user?.id || post.user_id;
+      const isTeacher = teacherUserIds.includes(parseInt(userId)) || teacherUserIds.includes(userId);
+      
+      if (isTeacher) {
+        topic.teacherReplies.push(post);
+      } else {
+        topic.studentPosts.push(post);
+        const studentName = post.user?.display_name || post.user_name;
+        if (studentName) {
+          topic.studentsNeedingGrades.add(studentName);
+        }
+      }
+    });
+
+    // Check grading status for each student post in each topic
+    const topicsArray = await Promise.all(Object.values(topicMap).map(async topic => {
+      // Count replies by teacher
+      const teacherReplyStats = {};
+      topic.teacherReplies.forEach(reply => {
+        const teacherName = reply.user?.display_name || reply.user_name || 'Unknown Teacher';
+        teacherReplyStats[teacherName] = (teacherReplyStats[teacherName] || 0) + 1;
+      });
+
+      // Check grading status for student posts
+      const studentsNeedingGrades = [];
+      
+      if (topic.assignment_id) {
+        const studentPosts = topic.studentPosts.filter(post => !post.parent_id);
+        
+        await Promise.all(studentPosts.map(async post => {
+          const studentName = post.user?.display_name || post.user_name;
+          const userId = post.user?.id || post.user_id;
+          
+          if (studentName && userId && topic.assignment_id) {
+            try {
+              const subRes = await fetch('/api/canvas-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  apiUrl,
+                  apiKey,
+                  endpoint: `/courses/${courseId}/assignments/${topic.assignment_id}/submissions/${userId}`,
+                  method: 'GET'
+                })
+              });
+              
+              if (subRes.ok) {
+                const submission = await subRes.json();
+                const isUngraded = !submission || submission.grade === null || submission.grade === undefined || submission.grade === '';
+                
+                if (isUngraded) {
+                  studentsNeedingGrades.push({
+                    name: studentName,
+                    createdAt: post.created_at
+                  });
+                }
+              } else {
+                studentsNeedingGrades.push({
+                  name: studentName,
+                  createdAt: post.created_at
+                });
+              }
+            } catch {
+              studentsNeedingGrades.push({
+                name: studentName,
+                createdAt: post.created_at
+              });
+            }
+          }
+        }));
+      }
+
+      // Sort students by oldest post creation date first
+      const sortedStudents = studentsNeedingGrades
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+        .map(student => student.name);
+
+      return {
+        ...topic,
+        teacherReplyStats,
+        studentsNeedingGrades: sortedStudents,
+        totalStudentPosts: topic.studentPosts.length,
+        totalTeacherReplies: topic.teacherReplies.length,
+        due_at: topicMetadata[topic.id]?.due_at || null
+      };
+    }));
+
+    // Sort by due date (soonest first), then by title if no due date
+    topicsArray.sort((a, b) => {
+      // Topics with due dates come first
+      if (a.due_at && b.due_at) {
+        return new Date(a.due_at) - new Date(b.due_at);
+      }
+      if (a.due_at && !b.due_at) return -1;
+      if (!a.due_at && b.due_at) return 1;
+      
+      // Fallback to alphabetical sort by title
+      return a.title.localeCompare(b.title);
+    });
+    setTopics(topicsArray);
   }
 
   /**
@@ -296,6 +431,8 @@ export default function FeedbackPage() {
               <h2 className="text-2xl font-semibold" style={{color: 'var(--color-primary)'}}>
                 Feedback Tracker ({topics.length} Topics)
               </h2>
+            </div>
+            <div className="flex items-center gap-3">
               {cacheTimestamp && (
                 <StatusBadge type="cached" timestamp={cacheTimestamp} />
               )}
@@ -317,22 +454,22 @@ export default function FeedbackPage() {
                 </svg>
                 Refresh
               </button>
+              <button
+                className="flex items-center gap-1 uppercase text-sm px-2 py-1 font-medium hover:opacity-90 transition-colors"
+                style={{
+                  backgroundColor: 'var(--color-secondary)',
+                  color: 'var(--color-secondary-content)',
+                  borderRadius: 'var(--radius-field)'
+                }}
+                onClick={handleDownloadMarkdown}
+              >
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 013.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 013.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 01-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875zM12.75 12a.75.75 0 00-1.5 0v2.25H9a.75.75 0 000 1.5h2.25V18a.75.75 0 001.5 0v-2.25H15a.75.75 0 000-1.5h-2.25V12z" clipRule="evenodd" />
+                  <path d="M14.25 5.25a5.23 5.23 0 00-1.279-3.434 9.768 9.768 0 016.963 6.963A5.23 5.23 0 0016.5 7.5h-1.875a.375.375 0 01-.375-.375V5.25z" />
+                </svg>
+                Download All Conversations
+              </button>
             </div>
-            <button
-              className="flex items-center gap-1 uppercase text-sm px-2 py-1 font-medium hover:opacity-90 transition-colors"
-              style={{
-                backgroundColor: 'var(--color-secondary)',
-                color: 'var(--color-secondary-content)',
-                borderRadius: 'var(--radius-field)'
-              }}
-              onClick={handleDownloadMarkdown}
-            >
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                <path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 013.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 013.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 01-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875zM12.75 12a.75.75 0 00-1.5 0v2.25H9a.75.75 0 000 1.5h2.25V18a.75.75 0 001.5 0v-2.25H15a.75.75 0 000-1.5h-2.25V12z" clipRule="evenodd" />
-                <path d="M14.25 5.25a5.23 5.23 0 00-1.279-3.434 9.768 9.768 0 016.963 6.963A5.23 5.23 0 0016.5 7.5h-1.875a.375.375 0 01-.375-.375V5.25z" />
-              </svg>
-              Download All Conversations
-            </button>
           </div>
 
           <div className="space-y-10">

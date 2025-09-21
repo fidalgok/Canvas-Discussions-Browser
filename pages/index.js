@@ -366,14 +366,16 @@ export default function Home() {
               <h2 className="text-2xl font-semibold" style={{color: 'var(--color-primary)'}}>
                 Recent Activity ({uniqueUsers} Users)
               </h2>
-              {cacheTimestamp && (
+            </div>
+               <div className="flex items-center gap-2">
+               {cacheTimestamp && (
                 <StatusBadge type="cached" timestamp={cacheTimestamp} />
               )}
               {dataSource === 'fresh' && !cacheTimestamp && (
                 <StatusBadge type="fresh" />
               )}
               <button
-                className="flex items-center gap-1 text-sm px-2 py-1 font-medium hover:opacity-90 transition-colors"
+                className="flex items-center gap-1 uppercase text-sm px-2 py-1 font-medium hover:opacity-90 transition-colors"
                 style={{
                   backgroundColor: 'var(--color-secondary)',
                   color: 'var(--color-secondary-content)',
@@ -387,7 +389,7 @@ export default function Home() {
                 </svg>
                 Refresh
               </button>
-            </div>
+             </div>
           </div>
 
           <div className="space-y-4">
