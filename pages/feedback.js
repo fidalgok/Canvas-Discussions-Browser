@@ -92,6 +92,29 @@ export default function FeedbackPage() {
       });
     }
     
+    // Fetch topic metadata to get due dates
+    const topicsRes = await fetch('/api/canvas-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiUrl,
+        apiKey,
+        endpoint: `/courses/${courseId}/discussion_topics`,
+        method: 'GET'
+      })
+    });
+    
+    const topicMetadata = {};
+    if (topicsRes.ok) {
+      const topics = await topicsRes.json();
+      topics.forEach(topic => {
+        topicMetadata[topic.id] = {
+          due_at: topic.due_at,
+          assignment_id: topic.assignment_id
+        };
+      });
+    }
+    
     // Group posts by discussion topic
     const topicMap = {};
     
