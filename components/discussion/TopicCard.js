@@ -11,11 +11,10 @@ export default function TopicCard({ topic, className = "" }) {
   console.log("Rendering TopicCard for topic:", topic);
   return (
     <div
-      className={`border rounded-lg p-6 mb-4 border rounded-lg shadow-md ${className}`}
+      className={`rounded-none border-l-4 mt-6 mb-8 px-6 ${className}`}
       style={{
-        borderColor: "var(--color-base-300)",
+        borderColor: "var(--color-primary)",
         backgroundColor: "var(--color-base-100)",
-        borderRadius: "var(--radius-box)",
       }}
     >
       <h3
@@ -71,7 +70,7 @@ export default function TopicCard({ topic, className = "" }) {
               // find the student with a claim status from the allStudentsWithStatus array on the topic
 
               const studentClaimStatus = topic?.allStudentsWithStatus?.find(
-                (s) => s.user_name === studentName
+                (s) => s.name === studentName
               )?.claimStatus;
 
               return (
@@ -112,7 +111,7 @@ export default function TopicCard({ topic, className = "" }) {
             })}
           </div>
           <div className="text-sm mt-2" style={{ color: "#6b7280" }}>
-            Ordered oldest to newest
+            Students ordered by submission date (oldest first)
           </div>
         </div>
       )}

@@ -15,15 +15,16 @@ import { useCanvasCache } from "../components/canvas/useCanvasCache";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import StatusBadge from "../components/ui/StatusBadge";
-import RefreshButton from "../components/ui/RefreshButton";
 import CredentialsRequired from "../components/ui/CredentialsRequired";
 import TopicCard from "../components/discussion/TopicCard";
 import { fetchCanvasDiscussions } from "../js/canvasApi";
 import {
-  filterGradedReflections,
-  fetchCourseEnrollments,
-} from "../js/dataUtils";
+  processCanvasDataForDashboards,
+  clearProcessedDataCache,
+} from "../js/gradingDataProcessor";
+import TeacherTotalsSummary from "../components/discussion/TeacherTotalsSummary";
 import DOMPurify from "dompurify";
+import TabbedTopicCard from "../components/discussion/TabbedTopicCard";
 
 export default function FeedbackPage() {
   const { credentialsMissing, apiUrl, apiKey, courseId } = useCanvasAuth();
@@ -53,10 +54,12 @@ export default function FeedbackPage() {
       }
 
       // Create a new allStudentsWithStatus array that includes the claimStatus
-      const newAllStudentsWithStatus = topic.studentPosts.map((student) => ({
-        ...student,
-        claimStatus: statusMap.get(String(student.user_id)) || null,
-      }));
+      const newAllStudentsWithStatus = topic.allStudentsWithStatus.map(
+        (student) => ({
+          ...student,
+          claimStatus: statusMap.get(String(student.userId)) || null,
+        })
+      );
 
       // Return a new topic object with the updated student list
       return {
@@ -332,7 +335,7 @@ export default function FeedbackPage() {
       <PageContainer description="">
         <div className="bg-white p-6 mb-6">
           <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-4">
+            <div className="flex  items-center gap-4">
               <h2
                 className="text-2xl font-semibold"
                 style={{ color: "var(--color-primary)" }}
@@ -413,7 +416,7 @@ export default function FeedbackPage() {
                 {/* Individual Topic Cards */}
 
                 {topicsWithStatus.map((topic) => (
-                  <TopicCard key={topic.id} topic={topic} />
+                  <TabbedTopicCard key={topic.id} topic={topic} />
                 ))}
               </>
             )}
